@@ -1,13 +1,14 @@
-# Clinic Management System  
+# 🏥 Clinic Management System  
 
-A **database-driven application** developed for the *Advanced Database* course.  
+A **database-driven application** developed as part of the *Advanced Database* course.  
 This project demonstrates how advanced database concepts can be applied in a real-world clinic scenario, focusing on:  
+
 - Normalization and structured schema design  
 - Indexing and query optimization for performance  
 - Stored procedures and triggers for automation  
 - Secure authentication and patient data management  
 
-The result is a prototype system that manages core clinic operations such as patients, doctors, appointments, treatments, and billing.  
+The system manages core clinic operations including **patients, doctors, appointments, treatments, and billing**.  
 
 ---
 
@@ -33,8 +34,8 @@ The result is a prototype system that manages core clinic operations such as pat
   - Appointment status tracking (pending, confirmed, completed)  
 
 - **Reports & Analytics**  
-  - Clinic activity reports & financial overview  
-  - Extendable for future data exports  
+  - Generate activity and financial reports  
+  - Extendable for data export  
 
 - **User Experience (React + Vite)**  
   - Modular components (`Appointments`, `Doctors`, `Patients`, `Reports`, `Dashboard`)  
@@ -46,85 +47,126 @@ The result is a prototype system that manages core clinic operations such as pat
 ## 📦 Tech Stack  
 
 - **Frontend:** React, Vite, Context API, CSS Modules  
-- **Backend:** (API/Database integration – configurable)  
+- **Backend:** API/Database integration (configurable)  
 - **Other Tools:** Node.js, npm  
 
 ---
 
 ## 📸 Demo Flow  
 
-Below is the system demo from the **end-user perspective**, illustrating how a clinic staff member interacts with the system step by step.  
+Below is the **end-user flow**, showing how a clinic staff member interacts with the system.  
+All screenshots are centered for clarity.  
 
 ### 1. Authentication & Access  
-- **Login**  
-  ![Login](Image/Login.png)  
-- **OTP Verification**  
-  ![OTP](Image/OTP.png)  
-- **Register a New Account**  
-  ![Register](Image/Register.png)  
+
+<p align="center">
+  <img src="Image/Login.png" alt="Login" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/OTP.png" alt="OTP Verification" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Register.png" alt="Register" width="600"/>
+</p>
 
 ---
 
 ### 2. Dashboard & Navigation  
-- **Main Dashboard** – Centralized overview of patients, doctors, and appointments.  
-  ![Dashboard](Image/Dashboard.png)  
-- **Help & Settings** – Access user support and customize settings.  
-  ![Help](Image/Help.png)  
-  ![Settings](Image/Settings.png)  
+
+<p align="center">
+  <img src="Image/Dashboard.png" alt="Dashboard" width="700"/>
+</p>
+
+<p align="center">
+  <img src="Image/Help.png" alt="Help" width="400"/>  
+  <img src="Image/Settings.png" alt="Settings" width="400"/>
+</p>
 
 ---
 
 ### 3. Patient Management  
-- **Add a New Patient**  
-  ![Add Patient](Image/Add%20patient.png)  
-- **Edit Patient Information**  
-  ![Edit Patient](Image/Edit%20Patient.png)  
-- **View Patient Records**  
-  ![View Patients](Image/View%20patients.png)  
-- **Patients List**  
-  ![Patients](Image/Patients.png)  
+
+<p align="center">
+  <img src="Image/Add%20patient.png" alt="Add Patient" width="500"/>
+</p>
+
+<p align="center">
+  <img src="Image/Edit%20Patient.png" alt="Edit Patient" width="500"/>
+</p>
+
+<p align="center">
+  <img src="Image/View%20patients.png" alt="View Patients" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Patients.png" alt="Patients List" width="600"/>
+</p>
 
 ---
 
 ### 4. Doctor Management  
-- **Add a New Doctor**  
-  ![Add Doctor](Image/Add%20Doctor.png)  
-- **Edit Doctor Profile**  
-  ![Edit Doctor](Image/Edit%20Doctor.png)  
-- **View Doctors**  
-  ![Doctors](Image/Doctors.png)  
-- **Doctor Schedule Example (Dr. Anna)**  
-  ![Schedule](Image/Schedule%20for%20Dr.Anna.png)  
-- **Doctor Review**  
-  ![Review Doctor](Image/Reviews%20doctor.png)  
+
+<p align="center">
+  <img src="Image/Add%20Doctor.png" alt="Add Doctor" width="500"/>
+</p>
+
+<p align="center">
+  <img src="Image/Edit%20Doctor.png" alt="Edit Doctor" width="500"/>
+</p>
+
+<p align="center">
+  <img src="Image/Doctors.png" alt="Doctors" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Schedule%20for%20Dr.Anna.png" alt="Doctor Schedule" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Reviews%20doctor.png" alt="Doctor Review" width="600"/>
+</p>
 
 ---
 
 ### 5. Appointment Management  
-- **Appointments Overview**  
-  ![Appointments](Image/Appointments.png)  
-- **Appointment Details**  
-  ![Appointment Details](Image/Appointments%20Details.png)  
-- **Book a New Appointment**  
-  ![Book Appointment](Image/Book%20new%20appointment.png)  
+
+<p align="center">
+  <img src="Image/Appointments.png" alt="Appointments Overview" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Appointments%20Details.png" alt="Appointment Details" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Book%20new%20appointment.png" alt="Book Appointment" width="600"/>
+</p>
 
 ---
 
 ### 6. Reports & Feedback  
-- **Reports** – Generate clinic activity reports.  
-  ![Reports](Image/Reports.png)  
-- **Feedback** – Collect patient and doctor feedback for improvements.  
-  ![Feedback](Image/Feedback.png)  
+
+<p align="center">
+  <img src="Image/Reports.png" alt="Reports" width="600"/>
+</p>
+
+<p align="center">
+  <img src="Image/Feedback.png" alt="Feedback" width="600"/>
+</p>
 
 ---
 
 ## ⚙️ How to Run  
 
-1. Clone the repository:  
+1. **Clone the repository**  
    ```bash
    git clone https://github.com/your-username/Clinic-Management.git
    cd Clinic-Management
-2. Start development server:
-npm run dev
-3. npm run build
-npm run build
+2. **Install dependencies**
+  npm install
+3. **Start development server**
+  npm run dev
+4. **Build for production**
+  npm run build
