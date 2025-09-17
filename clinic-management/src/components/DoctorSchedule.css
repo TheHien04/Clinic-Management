@@ -1,0 +1,16 @@
+.doctor-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.doctor-schedule-table th,
+.doctor-schedule-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #e3f2fd;
+  text-align: center;
+}
+.doctor-schedule-table th {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 600;
+}

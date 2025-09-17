@@ -1,0 +1,26 @@
+.header {
+  height: 64px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.07);
+}
+.header-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1976d2;
+}
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  font-size: 1.5rem;
+}
+.user-name {
+  font-size: 1.05rem;
+  color: #333;
+}

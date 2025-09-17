@@ -1,0 +1,117 @@
+.sidebar {
+  width: 235px;
+  background: #1976d2;
+  color: #fff;
+  min-height: 100vh;
+  padding: 24px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  transition: background 0.3s;
+}
+.sidebar-logo {
+  margin-bottom: 8px;
+}
+.sidebar-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  margin-bottom: 36px;
+  letter-spacing: 1.5px;
+  text-shadow: 0 2px 8px #1565c0;
+  text-align: center;
+}
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 2px;
+}
+.sidebar-link {
+  color: #fff;
+  text-decoration: none;
+  padding: 14px 32px;
+  font-size: 1.12rem;
+  font-weight: 600;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s, transform 0.18s;
+  border-left: 4px solid transparent;
+  border-radius: 0 18px 18px 0;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-link:hover,
+.sidebar-link.active {
+  background: #1565c0;
+  color: #e3f2fd;
+  border-left: 4px solid #fff;
+  box-shadow: 0 2px 8px #0d47a1;
+  transform: translateX(2px) scale(1.03);
+}
+.sidebar-bottom {
+  position: sticky;
+  top: 72px;
+  width: 100%;
+  padding: 18px 0 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  background: #1976d2;
+  z-index: 2;
+}
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 18px 8px 8px;
+  margin-bottom: 2px;
+}
+.sidebar-shortcuts {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+.sidebar-shortcut-btn {
+  background: #1565c0;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+.sidebar-shortcut-btn:hover {
+  background: #fff;
+  color: #1976d2;
+  box-shadow: 0 2px 8px #0d47a1;
+}
+.theme-dark .sidebar {
+  background: #222e3a;
+  color: #fff;
+}
+.theme-dark .sidebar-link,
+.theme-dark .sidebar-title {
+  color: #fff;
+}
+.theme-dark .sidebar-link:hover,
+.theme-dark .sidebar-link.active {
+  background: #333b4d;
+  color: #e3f2fd;
+  border-left: 4px solid #fff;
+  box-shadow: 0 2px 8px #0d47a1;
+  transform: translateX(2px) scale(1.03);
+}
+.dashboard-layout {
+  min-height: 100vh;
+  background: #f6f9fc;
+  transition: background 0.3s;
+}
+.theme-dark .dashboard-layout {
+  background: #181f2a;
+}
+}

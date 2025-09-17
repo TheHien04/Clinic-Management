@@ -1,0 +1,66 @@
+.patient-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.18);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.patient-modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 32px rgba(25, 118, 210, 0.18);
+  padding: 28px 32px 18px 32px;
+  min-width: 340px;
+  max-width: 480px;
+  width: 100%;
+  position: relative;
+}
+.patient-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.patient-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  color: #1976d2;
+  cursor: pointer;
+}
+.patient-modal-body {
+  font-size: 1.05rem;
+  color: #333;
+}
+.patient-modal-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+}
+.patient-modal-table th,
+.patient-modal-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e3f2fd;
+  font-size: 0.98rem;
+}
+.patient-modal-table th {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 600;
+}
+.patient-modal-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.patient-warning {
+  color: #d32f2f;
+  font-weight: 600;
+  margin-top: 8px;
+}

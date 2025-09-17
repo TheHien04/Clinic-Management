@@ -1,0 +1,118 @@
+.appointments-content {
+  padding: 0 !important;
+  background: #f4f7fb;
+  min-height: calc(100vh - 64px);
+  width: 100%;
+  margin: 0 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.appointments-content h2 {
+  color: #1976d2;
+  font-size: 2.1rem;
+  font-weight: 700;
+  margin-bottom: 0 !important;
+  text-align: center;
+  letter-spacing: 0.5px;
+  margin-top: 0 !important;
+}
+.appointments-table-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  background: transparent;
+  overflow-x: auto;
+}
+
+.appointments-table {
+  width: 100%;
+  max-width: 1400px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(25, 118, 210, 0.1);
+  padding: 0 !important;
+  border: 1.5px solid #e3f2fd;
+  border-collapse: collapse;
+  font-size: 1rem;
+  margin: 0 !important;
+}
+.appointments-table th,
+.appointments-table td {
+  padding: 12px 16px;
+  text-align: left;
+}
+.appointments-table th {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 600;
+}
+.appointments-table tr:nth-child(even) {
+  background: #f7fafc;
+}
+.status {
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 4px 12px;
+  display: inline-block;
+}
+.status-confirmed {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+.status-pending {
+  background: #fffde7;
+  color: #fbc02d;
+}
+.appointments-features {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 !important;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(25, 118, 210, 0.08);
+  padding: 0 !important;
+  border: 1.5px solid #e3f2fd;
+  display: flex;
+  flex-direction: row;
+  gap: 0 !important;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  overflow-x: auto;
+}
+.appointments-feature-block {
+  flex: 1 1 320px;
+  min-width: 280px;
+  text-align: left;
+  box-sizing: border-box;
+}
+@media (max-width: 900px) {
+  .appointments-features {
+    flex-direction: column;
+    gap: 18px;
+    padding: 18px 10px 18px 10px;
+  }
+  .appointments-feature-block {
+    min-width: 0;
+    width: 100%;
+  }
+}
+.appointments-feature-title {
+  color: #1976d2;
+  font-weight: 600;
+  font-size: 1.08rem;
+  margin-bottom: 10px;
+}
+.appointments-feature-desc {
+  color: #444;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+.status-completed {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+.status-cancelled {
+  background: #ffebee;
+  color: #d32f2f;
+}

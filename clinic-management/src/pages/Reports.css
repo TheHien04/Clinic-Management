@@ -1,0 +1,127 @@
+/* Reports.css - Modern, clean, responsive styles for Reports page */
+.reports-content {
+  min-height: 100vh;
+  background: #f4f8fd;
+}
+.reports-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px #dbeafe;
+  padding: 32px;
+  max-width: 1200px;
+  margin: 32px auto 16px auto;
+}
+.reports-title {
+  font-weight: 800;
+  color: #1976d2;
+  margin-bottom: 32px;
+  text-align: center;
+  font-size: 32px;
+  letter-spacing: 1px;
+}
+.reports-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+.reports-filters label,
+.reports-filters select {
+  font-weight: 600;
+  color: #1976d2;
+}
+.reports-filters input,
+.reports-filters select {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1.5px solid #bfc9da;
+  min-width: 140px;
+}
+.reports-export-btn {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 28px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #e0e7ef;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reports-summary-row {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.reports-summary-card {
+  flex: 1;
+  min-width: 260px;
+  background: #f6fafd;
+  border-radius: 14px;
+  box-shadow: 0 1px 8px #e0e7ef;
+  padding: 28px;
+  margin-bottom: 16px;
+}
+.reports-summary-title {
+  font-weight: 700;
+  color: #1976d2;
+  margin-bottom: 12px;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+.reports-summary-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #222;
+  font-size: 16px;
+  line-height: 2;
+}
+.reports-summary-list b {
+  color: #1976d2;
+  font-size: 18px;
+}
+.reports-kpi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+.reports-kpi-table thead {
+  background: #e3efff;
+}
+.reports-kpi-table th {
+  padding: 10px;
+  text-align: center;
+  color: #1976d2;
+  font-weight: 700;
+}
+.reports-kpi-table td {
+  padding: 10px;
+  text-align: center;
+  font-weight: 600;
+}
+.reports-kpi-table tr {
+  background: #fff;
+  border-bottom: 1px solid #e0e7ef;
+  transition: background 0.2s;
+}
+.reports-kpi-table tr:hover {
+  background: #e3efff;
+}
+@media (max-width: 900px) {
+  .reports-card {
+    padding: 16px;
+  }
+  .reports-summary-row {
+    gap: 12px;
+  }
+  .reports-summary-card {
+    padding: 14px;
+  }
+}
