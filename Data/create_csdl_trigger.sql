@@ -135,7 +135,7 @@ CREATE TABLE appointments (
     patient_id INT NOT NULL,
     schedule_id INT NOT NULL,
     scheduled_time DATETIME2 NOT NULL,
-    status NVARCHAR(20) DEFAULT 'booked' CHECK (status IN ('booked', 'confirmed', 'cancelled', 'completed')) NOT NULL,
+    status NVARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'booked', 'confirmed', 'cancelled', 'completed', 'checked-in')) NOT NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT fk_appointment_patient
         FOREIGN KEY (patient_id)

@@ -1,0 +1,224 @@
+.stat-card {
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.stat-card:hover {
+  box-shadow: 0 4px 18px rgba(25, 118, 210, 0.13);
+  transform: translateY(-2px) scale(1.03);
+}
+.dashboard-content table tr {
+  transition: background 0.18s;
+}
+.dashboard-content table tr:hover {
+  background: #e3f2fd33;
+}
+.dashboard-content button,
+.dashboard-content .btn {
+  transition: background 0.18s, box-shadow 0.18s;
+}
+.dashboard-content button:hover,
+.dashboard-content .btn:hover {
+  background: #e3f2fd;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
+}
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f7faff;
+  overflow-x: hidden;
+}
+
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100vh;
+}
+
+/* Scrollbar styling */
+.dashboard-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-main::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.dashboard-main::-webkit-scrollbar-thumb {
+  background: #1976d2;
+  border-radius: 4px;
+}
+
+.dashboard-main::-webkit-scrollbar-thumb:hover {
+  background: #1565c0;
+}
+
+.dashboard-content {
+  padding: 32px 24px 60px 24px;
+  background: #f7faff;
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.dashboard-content h2 {
+  color: #1976d2;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 36px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-stats-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1400px;
+}
+
+.stats-container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e3eaf3;
+  padding: 24px;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  width: 100%;
+  justify-content: space-around;
+}
+
+.stat-card {
+  background: transparent;
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 160px;
+  text-align: center;
+  flex: 1 1 160px;
+  border: none;
+  box-shadow: none;
+  position: relative;
+}
+
+.stat-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #607d8b;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.stat-value {
+  color: #1976d2;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.dashboard-charts-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 1400px;
+  flex-wrap: wrap;
+}
+
+.chart-widget {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e3eaf3;
+  padding: 24px;
+  flex: 1 1 calc(50% - 12px);
+  min-width: 400px;
+  max-width: 688px;
+}
+
+.chart-widget-title {
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1976d2;
+  font-size: 1.1rem;
+}
+
+.dashboard-bottom {
+  margin-top: 24px;
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1400px;
+}
+
+.quick-links {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e3eaf3;
+  padding: 24px;
+  flex: 1 1 calc(50% - 12px);
+  min-width: 280px;
+  max-width: 688px;
+}
+.quick-links-title {
+  color: #1976d2;
+  font-weight: 600;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  text-align: center;
+}
+.quick-link-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.quick-link-list li {
+  margin-bottom: 10px;
+}
+.quick-link-list a {
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 500;
+  transition: text-decoration 0.2s;
+}
+.quick-link-list a:hover {
+  text-decoration: underline;
+}
+.dashboard-announcements {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e3eaf3;
+  padding: 24px;
+  flex: 1 1 calc(50% - 12px);
+  min-width: 280px;
+  max-width: 688px;
+}
+.announcements-title {
+  color: #1976d2;
+  font-weight: 600;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  text-align: center;
+}
+.announcement-item {
+  margin-bottom: 10px;
+  color: #333;
+  font-size: 0.95rem;
+}

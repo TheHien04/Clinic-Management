@@ -1,0 +1,9 @@
+/* index.css for global styles and Tailwind integration */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', 'Roboto', Arial, sans-serif;
+  background-color: #f6fafd;
+}

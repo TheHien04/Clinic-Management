@@ -29,9 +29,9 @@ BEGIN
 
     -- Random trạng thái
     SELECT @status = CASE ABS(CHECKSUM(NEWID())) % 3
-                        WHEN 0 THEN 'Booked'
-                        WHEN 1 THEN 'Completed'
-                        ELSE 'Cancelled'
+                        WHEN 0 THEN 'booked'
+                        WHEN 1 THEN 'completed'
+                        ELSE 'cancelled'
                      END;
 
     -- Insert vào bảng appointments
