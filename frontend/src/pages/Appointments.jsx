@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DetailsIcon, EditIcon, DeleteIcon } from '../components/icons';
 import Sidebar from '../components/Sidebar';
@@ -6,12 +6,11 @@ import Header from '../components/Header';
 import './Common.css';
 import './Appointments.css';
 import Spinner from '../components/Spinner';
-import { Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import StackedBarStatusChart from '../components/StackedBarStatusChart';
-import AppointmentCalendarChart from '../components/AppointmentCalendarChart';
-import AppointmentSankeyChart from '../components/AppointmentSankeyChart';
-import DonutChart from '../components/DonutChart';
 import { ROUTES } from '../constants';
+
+const StackedBarStatusChart = lazy(() => import('../components/StackedBarStatusChart'));
+const AppointmentCalendarChart = lazy(() => import('../components/AppointmentCalendarChart'));
+const DonutChart = lazy(() => import('../components/DonutChart'));
 
 
 const initialAppointments = [
@@ -42,6 +41,7 @@ export default function Appointments() {
   const tableRef = useRef(null);
   const calendarRef = useRef(null);
   const smartQueueRef = useRef(null);
+  const chartFallback = <div className="chart-loading">Loading chart...</div>;
 
   // Quick search & advanced filter
   const filteredAppointments = appointments.filter(item => {
@@ -492,15 +492,19 @@ export default function Appointments() {
           <div className="charts-row ap-stagger ap-delay-2">
             <div className="chart-card">
               <div className="chart-title">Appointments by Status (Stacked Bar)</div>
-              <StackedBarStatusChart appointments={appointments} />
+              <Suspense fallback={chartFallback}>
+                <StackedBarStatusChart appointments={appointments} />
+              </Suspense>
             </div>
             <div className="chart-card">
               <div className="chart-title">Appointment Status Ratio</div>
-              <DonutChart
-                data={pieData.map(d => d.value)}
-                colors={pieColors}
-                labels={pieData.map(d => d.status)}
-              />
+              <Suspense fallback={chartFallback}>
+                <DonutChart
+                  data={pieData.map(d => d.value)}
+                  colors={pieColors}
+                  labels={pieData.map(d => d.status)}
+                />
+              </Suspense>
             </div>
           </div>
           
@@ -617,7 +621,9 @@ export default function Appointments() {
           {/* Calendar */}
           <div className="chart-card ap-calendar-card ap-stagger ap-delay-6" ref={calendarRef}>
             <div className="chart-title">Appointment Calendar</div>
-            <AppointmentCalendarChart appointments={appointments} />
+            <Suspense fallback={chartFallback}>
+              <AppointmentCalendarChart appointments={appointments} />
+            </Suspense>
           </div>
           <div className="appointments-features ap-features-layout ap-stagger ap-delay-7">
             <div className="appointments-feature-block ap-feature-card">

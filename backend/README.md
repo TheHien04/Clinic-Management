@@ -70,6 +70,11 @@ npm run db:deploy
 
 Migrations are stored in `backend/migrations/` and tracked in `dbo.SchemaMigrations`.
 
+After migrations complete, a demo admin account is seeded for local testing:
+
+- Email: `admin@clinic.local`
+- Password: `Admin@123`
+
 4. **Start the server:**
 ```bash
 # Development mode with auto-reload
