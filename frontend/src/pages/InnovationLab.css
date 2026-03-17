@@ -7,12 +7,14 @@
 .innovation-main {
   flex: 1;
   padding: 24px;
+  min-width: 0;
 }
 
 .innovation-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .innovation-card {
@@ -26,6 +28,7 @@
 .innovation-card h3 {
   margin: 0 0 10px;
   color: var(--brand-500);
+  line-height: 1.25;
 }
 
 .innovation-form {
@@ -40,6 +43,8 @@
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 14px;
+  width: 100%;
+  min-width: 0;
 }
 
 .innovation-form button {
@@ -83,6 +88,10 @@
   margin-top: 8px;
 }
 
+.innovation-card p {
+  overflow-wrap: anywhere;
+}
+
 .innovation-policy-editor {
   width: 100%;
   border: 1px solid #bfd6ea;
@@ -97,6 +106,12 @@
   display: flex;
   gap: 8px;
   margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.innovation-inline-actions button {
+  flex: 1 1 120px;
+  min-width: 0;
 }
 
 .innovation-list {
@@ -120,4 +135,24 @@
 
 .innovation-emergency-card h3 {
   color: #932a2a;
+}
+
+@media (max-width: 900px) {
+  .innovation-main {
+    padding: 16px;
+  }
+
+  .innovation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .innovation-card {
+    padding: 14px;
+  }
+
+  .innovation-kpi {
+    font-size: 22px;
+  }
 }
