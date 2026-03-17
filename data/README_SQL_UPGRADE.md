@@ -1,5 +1,17 @@
 # 🎯 HƯỚNG DẪN CHẠY SQL - NÂNG CẤP CSDL NÂNG CAO
 
+## LUU Y CHO PROJECT HIEN TAI (BACKEND SCHEMA)
+
+Project backend hien tai dang dung schema `ClinicManagement` (PascalCase columns).
+Bo script ben duoi file nay chu yeu danh cho schema `ClinicDB` cu.
+
+Neu ban dang chay dung backend trong thu muc `backend/src`, hay uu tien dung:
+
+- `Data/create_advanced_sqlserver_analytics.sql`
+- `Data/README_SQL_ADVANCED_CLINICMANAGEMENT.md`
+
+Bo script moi nay da duoc canh theo schema backend thuc te va da tuong thich voi `backend/src/controllers/reportController.js`.
+
 ## 📋 TÓM TẮT
 
 Đã tạo **4 file SQL mới** để nâng cấp project lên chuẩn quốc tế cho môn **CSDL nâng cao**:

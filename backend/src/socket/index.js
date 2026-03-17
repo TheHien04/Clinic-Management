@@ -6,8 +6,75 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { jwtConfig } from '../config/jwt.js';
+import { getAllowedOrigins } from '../config/env.js';
 
 let io = null;
+
+const normalizeSeverity = (value) => {
+  const severity = String(value || '').toLowerCase();
+  if (severity === 'critical' || severity === 'warning' || severity === 'info') {
+    return severity;
+  }
+  return 'info';
+};
+
+const formatDateValue = (value) => {
+  if (!value) return 'unknown-date';
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+  return String(value).slice(0, 10) || 'unknown-date';
+};
+
+const formatTimeValue = (value) => {
+  if (!value) return 'unknown-time';
+  const raw = String(value);
+  const match = raw.match(/\b(\d{2}:\d{2})/);
+  return match ? match[1] : raw.slice(0, 5) || 'unknown-time';
+};
+
+const buildOpsAlertPayload = ({ action, appointment }) => {
+  const alertTitleByAction = {
+    created: 'New appointment booked',
+    updated: 'Appointment updated',
+    deleted: 'Appointment deleted',
+  };
+
+  const status = String(appointment?.Status || '').toLowerCase();
+  const severity =
+    action === 'deleted'
+      ? 'warning'
+      : status === 'cancelled'
+        ? 'warning'
+        : status === 'booked' || status === 'pending'
+          ? 'info'
+          : 'info';
+
+  const at = new Date().toISOString();
+  const date = formatDateValue(appointment?.AppointmentDate);
+  const time = formatTimeValue(appointment?.AppointmentTime);
+  const patientName = appointment?.PatientName || `Patient #${appointment?.PatientID || '-'}`;
+  const doctorName = appointment?.DoctorName || `Doctor #${appointment?.DoctorID || '-'}`;
+  const statusText = status === 'unknown' ? 'status unavailable' : `status ${status}`;
+
+  return {
+    total: 1,
+    critical: 0,
+    page: 'appointments',
+    at,
+    alerts: [
+      {
+        id: `appointment-${action}-${appointment?.AppointmentID || Date.now()}`,
+        severity: normalizeSeverity(severity),
+        acknowledged: false,
+        title: alertTitleByAction[action] || 'Appointment signal',
+        detail: `#${appointment?.AppointmentID || '-'} ${patientName} with ${doctorName} at ${time} on ${date} (${statusText}).`,
+        at,
+      },
+    ],
+  };
+};
 
 /**
  * Initialize Socket.IO
@@ -16,7 +83,7 @@ let io = null;
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.SOCKET_CORS_ORIGIN || 'http://localhost:5173',
+      origin: getAllowedOrigins('SOCKET_CORS_ORIGIN', process.env.CORS_ORIGIN || 'http://localhost:5173'),
       methods: ['GET', 'POST'],
       credentials: true
     }
@@ -97,6 +164,7 @@ export const initSocket = (server) => {
 export const emitAppointmentCreated = (appointment) => {
   if (io) {
     io.to('appointments').emit('appointment:created', appointment);
+    io.emit('ops-alerts:update', buildOpsAlertPayload({ action: 'created', appointment }));
     
     // Notify specific patient
     if (appointment.PatientID) {
@@ -117,6 +185,7 @@ export const emitAppointmentCreated = (appointment) => {
 export const emitAppointmentUpdated = (appointment) => {
   if (io) {
     io.to('appointments').emit('appointment:updated', appointment);
+    io.emit('ops-alerts:update', buildOpsAlertPayload({ action: 'updated', appointment }));
     
     // Notify specific users
     if (appointment.PatientID) {
@@ -131,11 +200,21 @@ export const emitAppointmentUpdated = (appointment) => {
 
 /**
  * Emit appointment deleted event
- * @param {number} appointmentId - Deleted appointment ID
+ * @param {Object} appointment - Deleted appointment snapshot
  */
-export const emitAppointmentDeleted = (appointmentId) => {
+export const emitAppointmentDeleted = (appointment) => {
   if (io) {
-    io.to('appointments').emit('appointment:deleted', { appointmentId });
+    io.to('appointments').emit('appointment:deleted', {
+      appointmentId: appointment?.AppointmentID,
+      appointment,
+    });
+    io.emit('ops-alerts:update', buildOpsAlertPayload({
+      action: 'deleted',
+      appointment: {
+        ...appointment,
+        Status: appointment?.Status || 'deleted',
+      },
+    }));
   }
 };
 
@@ -161,6 +240,42 @@ export const emitBroadcast = (message) => {
 };
 
 /**
+ * Emit innovation emergency escalation event
+ * @param {Object} event - Escalation context
+ */
+export const emitInnovationEmergency = (event) => {
+  if (!io) return;
+
+  const at = new Date().toISOString();
+  const payload = {
+    type: 'innovation-emergency-triage',
+    packageId: event?.packageId,
+    riskScore: Number(event?.riskScore || 0),
+    requestedBy: event?.requestedBy || 'unknown',
+    recommendation: event?.recommendation || 'Immediate clinical review required',
+    at,
+  };
+
+  io.emit('innovation:emergency', payload);
+  io.emit('ops-alerts:update', {
+    total: 1,
+    critical: 1,
+    page: 'innovation-lab',
+    at,
+    alerts: [
+      {
+        id: `innovation-emergency-${payload.packageId || Date.now()}`,
+        severity: 'critical',
+        acknowledged: false,
+        title: 'Emergency AI Triage Escalation',
+        detail: `Package ${payload.packageId || 'unknown'} scored ${payload.riskScore}. ${payload.recommendation}`,
+        at,
+      },
+    ],
+  });
+};
+
+/**
  * Get connected users count
  * @returns {number} Number of connected users
  */
@@ -175,5 +290,6 @@ export default {
   emitAppointmentDeleted,
   emitNotification,
   emitBroadcast,
+  emitInnovationEmergency,
   getConnectedUsersCount
 };

@@ -5,6 +5,8 @@
 import express from 'express';
 import {
   getAllDoctors,
+  getDoctorsIntelligence,
+  applyDoctorsRebalance,
   getDoctorById,
   createDoctor,
   updateDoctor,
@@ -19,6 +21,8 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/', getAllDoctors);
+router.get('/intelligence', getDoctorsIntelligence);
+router.post('/rebalance/apply', applyDoctorsRebalance);
 router.get('/:id', getDoctorById);
 router.get('/:id/schedule', getDoctorSchedule);
 router.post('/', createDoctor);

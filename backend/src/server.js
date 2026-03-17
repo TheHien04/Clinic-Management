@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 
 // Import configurations
 import { getPool, closePool } from './config/database.js';
+import { getAllowedOrigins, validateProductionEnv } from './config/env.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -26,6 +27,8 @@ import staffRoutes from './routes/staff.js';
 import clinicRoutes from './routes/clinics.js';
 import specialtyRoutes from './routes/specialties.js';
 import salaryRoutes from './routes/salaries.js';
+import reportRoutes from './routes/reports.js';
+import innovationRoutes from './routes/innovation.js';
 
 // Import middleware
 import { notFound, errorHandler } from './middleware/errorHandler.js';
@@ -35,6 +38,7 @@ import { initSocket } from './socket/index.js';
 
 // Load environment variables
 dotenv.config();
+validateProductionEnv();
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +46,8 @@ const __dirname = path.dirname(__filename);
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 5000;
+const START_PORT = parseInt(process.env.PORT || '5000', 10);
+const PORT_FALLBACK_ATTEMPTS = parseInt(process.env.PORT_FALLBACK_ATTEMPTS || '10', 10);
 
 // Create HTTP server
 const httpServer = createServer(app);
@@ -53,7 +58,7 @@ const io = initSocket(httpServer);
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: getAllowedOrigins('CORS_ORIGIN'),
   credentials: true
 }));
 app.use(morgan('dev')); // Logging
@@ -74,6 +79,8 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/clinics', clinicRoutes);
 app.use('/api/specialties', specialtyRoutes);
 app.use('/api/salaries', salaryRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/innovation', innovationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -108,27 +115,62 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Database connection and server start
+const listenOnPort = (port) => new Promise((resolve, reject) => {
+  const onError = (error) => {
+    httpServer.off('listening', onListening);
+    reject(error);
+  };
+
+  const onListening = () => {
+    httpServer.off('error', onError);
+    resolve(port);
+  };
+
+  httpServer.once('error', onError);
+  httpServer.once('listening', onListening);
+  httpServer.listen(port);
+});
+
+const listenWithFallback = async () => {
+  let port = START_PORT;
+
+  for (let attempt = 0; attempt < PORT_FALLBACK_ATTEMPTS; attempt += 1) {
+    try {
+      return await listenOnPort(port);
+    } catch (error) {
+      if (error.code !== 'EADDRINUSE' || attempt === PORT_FALLBACK_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      console.warn(`Port ${port} is in use, retrying on port ${port + 1}...`);
+      port += 1;
+    }
+  }
+
+  throw new Error('Could not find an available port to start backend server.');
+};
+
 const startServer = async () => {
   try {
     // Connect to database
     await getPool();
     console.log('✅ Database connected successfully');
 
-    // Start server
-    httpServer.listen(PORT, () => {
-      console.log(`
+    // Start server with automatic fallback when a port is occupied.
+    const activePort = await listenWithFallback();
+
+    console.log(`
 ╔════════════════════════════════════════════════╗
 ║   🏥 Clinic Management API Server             ║
 ║                                                ║
-║   🚀 Server running on port ${PORT}              ║
+║   🚀 Server running on port ${activePort}              ║
 ║   🌐 Environment: ${process.env.NODE_ENV || 'development'}               ║
-║   📡 API: http://localhost:${PORT}              ║
+║   📡 API: http://localhost:${activePort}              ║
 ║   🔌 WebSocket: Enabled                        ║
 ║                                                ║
-║   Documentation: http://localhost:${PORT}/     ║
+║   Documentation: http://localhost:${activePort}/     ║
 ╚════════════════════════════════════════════════╝
       `);
-    });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

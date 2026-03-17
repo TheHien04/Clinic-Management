@@ -5,110 +5,115 @@
 
 import { executeQuery } from '../config/database.js';
 
+const baseMedicalRecordSelect = `
+  SELECT
+    mr.RecordID AS record_id,
+    mr.AppointmentID AS app_id,
+    mr.DiagnosisCode AS diagnosis_code,
+    mr.Prescription AS prescription,
+    mr.Notes AS notes,
+    mr.FollowUpDate AS follow_up_date,
+    mr.CreatedDate AS created_at,
+    a.AppointmentDate AS appointment_date,
+    a.AppointmentTime AS appointment_time,
+    a.Status AS appointment_status,
+    p.PatientID AS patient_id,
+    p.FullName AS patient_name,
+    p.DateOfBirth AS date_of_birth,
+    p.PhoneNumber AS phone,
+    p.Email AS email,
+    p.Address AS address,
+    d.DoctorID AS doctor_id,
+    d.FullName AS doctor_name,
+    s.SpecialtyName AS specialty_name
+  FROM MedicalRecords mr
+  JOIN Appointments a ON mr.AppointmentID = a.AppointmentID
+  JOIN Patients p ON a.PatientID = p.PatientID
+  JOIN Doctors d ON a.DoctorID = d.DoctorID
+  LEFT JOIN Specialties s ON d.SpecialtyID = s.SpecialtyID
+`;
+
 // @desc    Get all medical records with patient & appointment details
 // @route   GET /api/medical-records
 // @access  Private
 export const getMedicalRecords = async (req, res) => {
   try {
     const { patientId, startDate, endDate, page = 1, limit = 20 } = req.query;
-    
-    let query = `
-      SELECT 
-        mr.record_id,
-        mr.app_id,
-        mr.diagnosis_code,
-        mr.prescription,
-        mr.notes,
-        mr.follow_up_date,
-        mr.created_at,
-        a.scheduled_time,
-        a.status AS appointment_status,
-        p.patient_id,
-        p.fullname AS patient_name,
-        p.date_of_birth,
-        p.phone,
-        e.fullname AS doctor_name,
-        s.specialty_name
-      FROM medical_records mr
-      JOIN appointments a ON mr.app_id = a.app_id
-      JOIN patients p ON a.patient_id = p.patient_id
-      JOIN schedules sch ON a.schedule_id = sch.schedule_id
-      JOIN doctors d ON sch.doctor_id = d.doctor_id
-      JOIN employees e ON d.doctor_id = e.emp_id
-      LEFT JOIN doctor_specialties ds ON d.doctor_id = ds.doctor_id
-      LEFT JOIN specialties s ON ds.specialty_id = s.specialty_id
-      WHERE 1=1
-    `;
-    
+
+    let query = `${baseMedicalRecordSelect} WHERE 1=1`;
     const params = {};
-    
+
     if (patientId) {
-      query += ` AND p.patient_id = @patientId`;
-      params.patientId = patientId;
+      query += ' AND p.PatientID = @patientId';
+      params.patientId = Number(patientId);
     }
-    
+
     if (startDate) {
-      query += ` AND mr.created_at >= @startDate`;
+      query += ' AND mr.CreatedDate >= @startDate';
       params.startDate = startDate;
     }
-    
+
     if (endDate) {
-      query += ` AND mr.created_at <= @endDate`;
+      query += ' AND mr.CreatedDate <= @endDate';
       params.endDate = endDate;
     }
-    
-    query += ` ORDER BY mr.created_at DESC`;
-    
-    // Pagination
-    const offset = (page - 1) * limit;
-    query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+
+    query += ' ORDER BY mr.CreatedDate DESC';
+
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(200, Math.max(1, Number(limit) || 20));
+    const offset = (safePage - 1) * safeLimit;
+
+    query += ' OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY';
     params.offset = offset;
-    params.limit = limit;
-    
+    params.limit = safeLimit;
+
     const result = await executeQuery(query, params);
-    
-    // Get total count
+
     let countQuery = `
-      SELECT COUNT(*) as total
-      FROM medical_records mr
-      JOIN appointments a ON mr.app_id = a.app_id
-      JOIN patients p ON a.patient_id = p.patient_id
+      SELECT COUNT(*) AS total
+      FROM MedicalRecords mr
+      JOIN Appointments a ON mr.AppointmentID = a.AppointmentID
+      JOIN Patients p ON a.PatientID = p.PatientID
       WHERE 1=1
     `;
-    
+
     const countParams = {};
+
     if (patientId) {
-      countQuery += ` AND p.patient_id = @patientId`;
-      countParams.patientId = patientId;
+      countQuery += ' AND p.PatientID = @patientId';
+      countParams.patientId = Number(patientId);
     }
+
     if (startDate) {
-      countQuery += ` AND mr.created_at >= @startDate`;
+      countQuery += ' AND mr.CreatedDate >= @startDate';
       countParams.startDate = startDate;
     }
+
     if (endDate) {
-      countQuery += ` AND mr.created_at <= @endDate`;
+      countQuery += ' AND mr.CreatedDate <= @endDate';
       countParams.endDate = endDate;
     }
-    
+
     const countResult = await executeQuery(countQuery, countParams);
-    const total = countResult.recordset[0].total;
-    
+    const total = Number(countResult.recordset[0]?.total || 0);
+
     res.json({
       success: true,
       data: result.recordset,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / safeLimit),
+      },
     });
   } catch (error) {
     console.error('Get medical records error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching medical records',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -119,54 +124,27 @@ export const getMedicalRecords = async (req, res) => {
 export const getMedicalRecordById = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const query = `
-      SELECT 
-        mr.*,
-        a.scheduled_time,
-        a.status AS appointment_status,
-        p.patient_id,
-        p.fullname AS patient_name,
-        p.date_of_birth,
-        p.gender,
-        p.phone,
-        p.email,
-        p.address,
-        p.bhyt_info,
-        e.fullname AS doctor_name,
-        s.specialty_name,
-        c.clinic_name
-      FROM medical_records mr
-      JOIN appointments a ON mr.app_id = a.app_id
-      JOIN patients p ON a.patient_id = p.patient_id
-      JOIN schedules sch ON a.schedule_id = sch.schedule_id
-      JOIN doctors d ON sch.doctor_id = d.doctor_id
-      JOIN employees e ON d.doctor_id = e.emp_id
-      LEFT JOIN clinics c ON sch.clinic_id = c.clinic_id
-      LEFT JOIN doctor_specialties ds ON d.doctor_id = ds.doctor_id
-      LEFT JOIN specialties s ON ds.specialty_id = s.specialty_id
-      WHERE mr.record_id = @id
-    `;
-    
-    const result = await executeQuery(query, { id });
-    
+
+    const query = `${baseMedicalRecordSelect} WHERE mr.RecordID = @id`;
+    const result = await executeQuery(query, { id: Number(id) });
+
     if (result.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Medical record not found'
+        message: 'Medical record not found',
       });
     }
-    
+
     res.json({
       success: true,
-      data: result.recordset[0]
+      data: result.recordset[0],
     });
   } catch (error) {
     console.error('Get medical record error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching medical record',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -177,42 +155,25 @@ export const getMedicalRecordById = async (req, res) => {
 export const getMedicalRecordsByPatient = async (req, res) => {
   try {
     const { patientId } = req.params;
-    
+
     const query = `
-      SELECT 
-        mr.record_id,
-        mr.app_id,
-        mr.diagnosis_code,
-        mr.prescription,
-        mr.notes,
-        mr.follow_up_date,
-        mr.created_at,
-        a.scheduled_time,
-        e.fullname AS doctor_name,
-        s.specialty_name
-      FROM medical_records mr
-      JOIN appointments a ON mr.app_id = a.app_id
-      JOIN schedules sch ON a.schedule_id = sch.schedule_id
-      JOIN doctors d ON sch.doctor_id = d.doctor_id
-      JOIN employees e ON d.doctor_id = e.emp_id
-      LEFT JOIN doctor_specialties ds ON d.doctor_id = ds.doctor_id
-      LEFT JOIN specialties s ON ds.specialty_id = s.specialty_id
-      WHERE a.patient_id = @patientId
-      ORDER BY mr.created_at DESC
+      ${baseMedicalRecordSelect}
+      WHERE p.PatientID = @patientId
+      ORDER BY mr.CreatedDate DESC
     `;
-    
-    const result = await executeQuery(query, { patientId });
-    
+
+    const result = await executeQuery(query, { patientId: Number(patientId) });
+
     res.json({
       success: true,
-      data: result.recordset
+      data: result.recordset,
     });
   } catch (error) {
     console.error('Get patient medical records error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching patient medical records',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -223,71 +184,76 @@ export const getMedicalRecordsByPatient = async (req, res) => {
 export const createMedicalRecord = async (req, res) => {
   try {
     const { appId, diagnosisCode, prescription, notes, followUpDate } = req.body;
-    
-    // Validate required fields
+
     if (!appId || !diagnosisCode) {
       return res.status(400).json({
         success: false,
-        message: 'Appointment ID and diagnosis code are required'
+        message: 'Appointment ID and diagnosis code are required',
       });
     }
-    
-    // Check if appointment exists and is completed
+
     const appointmentQuery = `
-      SELECT app_id, status 
-      FROM appointments 
-      WHERE app_id = @appId
+      SELECT AppointmentID, Status
+      FROM Appointments
+      WHERE AppointmentID = @appId
     `;
-    const appointmentResult = await executeQuery(appointmentQuery, { appId });
-    
+
+    const appointmentResult = await executeQuery(appointmentQuery, { appId: Number(appId) });
+
     if (appointmentResult.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Appointment not found'
+        message: 'Appointment not found',
       });
     }
-    
-    // Check if medical record already exists for this appointment
+
     const existingQuery = `
-      SELECT record_id 
-      FROM medical_records 
-      WHERE app_id = @appId
+      SELECT RecordID
+      FROM MedicalRecords
+      WHERE AppointmentID = @appId
     `;
-    const existingResult = await executeQuery(existingQuery, { appId });
-    
+
+    const existingResult = await executeQuery(existingQuery, { appId: Number(appId) });
+
     if (existingResult.recordset.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Medical record already exists for this appointment'
+        message: 'Medical record already exists for this appointment',
       });
     }
-    
-    // Create medical record
+
     const insertQuery = `
-      INSERT INTO medical_records (app_id, diagnosis_code, prescription, notes, follow_up_date)
-      OUTPUT INSERTED.*
+      INSERT INTO MedicalRecords (AppointmentID, DiagnosisCode, Prescription, Notes, FollowUpDate)
+      OUTPUT
+        INSERTED.RecordID AS record_id,
+        INSERTED.AppointmentID AS app_id,
+        INSERTED.DiagnosisCode AS diagnosis_code,
+        INSERTED.Prescription AS prescription,
+        INSERTED.Notes AS notes,
+        INSERTED.FollowUpDate AS follow_up_date,
+        INSERTED.CreatedDate AS created_at
       VALUES (@appId, @diagnosisCode, @prescription, @notes, @followUpDate)
     `;
-    
+
     const result = await executeQuery(insertQuery, {
-      appId,
+      appId: Number(appId),
       diagnosisCode,
       prescription: prescription || null,
       notes: notes || null,
-      followUpDate: followUpDate || null
+      followUpDate: followUpDate || null,
     });
-    
+
     res.status(201).json({
       success: true,
       message: 'Medical record created successfully',
-      data: result.recordset[0]
+      data: result.recordset[0],
     });
   } catch (error) {
     console.error('Create medical record error:', error);
     res.status(500).json({
       success: false,
       message: 'Error creating medical record',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -299,49 +265,54 @@ export const updateMedicalRecord = async (req, res) => {
   try {
     const { id } = req.params;
     const { diagnosisCode, prescription, notes, followUpDate } = req.body;
-    
-    // Check if record exists
-    const checkQuery = `SELECT record_id FROM medical_records WHERE record_id = @id`;
-    const checkResult = await executeQuery(checkQuery, { id });
-    
+
+    const checkQuery = 'SELECT RecordID FROM MedicalRecords WHERE RecordID = @id';
+    const checkResult = await executeQuery(checkQuery, { id: Number(id) });
+
     if (checkResult.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Medical record not found'
+        message: 'Medical record not found',
       });
     }
-    
-    // Update record
+
     const updateQuery = `
-      UPDATE medical_records
-      SET 
-        diagnosis_code = COALESCE(@diagnosisCode, diagnosis_code),
-        prescription = @prescription,
-        notes = @notes,
-        follow_up_date = @followUpDate
-      OUTPUT INSERTED.*
-      WHERE record_id = @id
+      UPDATE MedicalRecords
+      SET
+        DiagnosisCode = COALESCE(@diagnosisCode, DiagnosisCode),
+        Prescription = @prescription,
+        Notes = @notes,
+        FollowUpDate = @followUpDate
+      OUTPUT
+        INSERTED.RecordID AS record_id,
+        INSERTED.AppointmentID AS app_id,
+        INSERTED.DiagnosisCode AS diagnosis_code,
+        INSERTED.Prescription AS prescription,
+        INSERTED.Notes AS notes,
+        INSERTED.FollowUpDate AS follow_up_date,
+        INSERTED.CreatedDate AS created_at
+      WHERE RecordID = @id
     `;
-    
+
     const result = await executeQuery(updateQuery, {
-      id,
+      id: Number(id),
       diagnosisCode: diagnosisCode || null,
       prescription: prescription || null,
       notes: notes || null,
-      followUpDate: followUpDate || null
+      followUpDate: followUpDate || null,
     });
-    
+
     res.json({
       success: true,
       message: 'Medical record updated successfully',
-      data: result.recordset[0]
+      data: result.recordset[0],
     });
   } catch (error) {
     console.error('Update medical record error:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating medical record',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -352,32 +323,29 @@ export const updateMedicalRecord = async (req, res) => {
 export const deleteMedicalRecord = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Check if record exists
-    const checkQuery = `SELECT record_id FROM medical_records WHERE record_id = @id`;
-    const checkResult = await executeQuery(checkQuery, { id });
-    
+
+    const checkQuery = 'SELECT RecordID FROM MedicalRecords WHERE RecordID = @id';
+    const checkResult = await executeQuery(checkQuery, { id: Number(id) });
+
     if (checkResult.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Medical record not found'
+        message: 'Medical record not found',
       });
     }
-    
-    // Delete record
-    const deleteQuery = `DELETE FROM medical_records WHERE record_id = @id`;
-    await executeQuery(deleteQuery, { id });
-    
+
+    await executeQuery('DELETE FROM MedicalRecords WHERE RecordID = @id', { id: Number(id) });
+
     res.json({
       success: true,
-      message: 'Medical record deleted successfully'
+      message: 'Medical record deleted successfully',
     });
   } catch (error) {
     console.error('Delete medical record error:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting medical record',
-      error: error.message
+      error: error.message,
     });
   }
 };

@@ -1,71 +1,71 @@
 /**
- * Staff Controller - Manages non-doctor employees (receptionist, accountant, manager)
+ * Staff Controller - Manages non-doctor employees
  */
 
 import { executeQuery } from '../config/database.js';
 
-// Get all staff with employee details
+const baseSelect = `
+  SELECT
+    s.StaffID AS staff_id,
+    s.Position AS position,
+    s.ClinicID AS clinic_id,
+    s.FullName AS fullname,
+    s.DateOfBirth AS date_of_birth,
+    s.Gender AS gender,
+    s.PhoneNumber AS phone,
+    s.Email AS email,
+    s.Address AS address,
+    s.Status AS status,
+    c.ClinicName AS clinic_name,
+    c.Address AS clinic_address,
+    s.CreatedDate AS created_date,
+    s.UpdatedDate AS updated_date
+  FROM Staff s
+  LEFT JOIN Clinics c ON s.ClinicID = c.ClinicID
+`;
+
+// Get all staff with filtering
 export const getAllStaff = async (req, res) => {
   try {
     const { search, clinicId, position, status = 'active', limit = 100 } = req.query;
-    
-    let query = `
-      SELECT 
-        s.staff_id,
-        s.position,
-        s.clinic_id,
-        e.fullname,
-        e.date_of_birth,
-        e.gender,
-        e.phone,
-        e.email,
-        e.address,
-        e.status,
-        c.clinic_name,
-        c.address AS clinic_address
-      FROM staff s
-      JOIN employees e ON s.staff_id = e.emp_id
-      LEFT JOIN clinics c ON s.clinic_id = c.clinic_id
-      WHERE e.employee_type = 'S'
-    `;
-    
-    const params = {};
-    
+
+    let query = `${baseSelect} WHERE 1=1`;
+    const params = { limit: Math.min(200, Math.max(1, Number(limit) || 100)) };
+
     if (status) {
-      query += ` AND e.status = @status`;
+      query += ' AND LOWER(s.Status) = LOWER(@status)';
       params.status = status;
     }
-    
+
     if (search) {
-      query += ` AND (e.fullname LIKE @search OR e.phone LIKE @search OR e.email LIKE @search)`;
+      query += ' AND (s.FullName LIKE @search OR s.PhoneNumber LIKE @search OR s.Email LIKE @search)';
       params.search = `%${search}%`;
     }
-    
+
     if (clinicId) {
-      query += ` AND s.clinic_id = @clinicId`;
-      params.clinicId = clinicId;
+      query += ' AND s.ClinicID = @clinicId';
+      params.clinicId = Number(clinicId);
     }
-    
+
     if (position) {
-      query += ` AND s.position = @position`;
+      query += ' AND s.Position = @position';
       params.position = position;
     }
-    
-    query += ` ORDER BY e.fullname OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY`;
-    params.limit = parseInt(limit);
-    
+
+    query += ' ORDER BY s.FullName OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY';
+
     const result = await executeQuery(query, params);
-    
+
     res.json({
       success: true,
-      data: result.recordset
+      data: result.recordset,
     });
   } catch (error) {
     console.error('Get staff error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching staff',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -74,43 +74,27 @@ export const getAllStaff = async (req, res) => {
 export const getStaffById = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const query = `
-      SELECT 
-        s.*,
-        e.fullname,
-        e.date_of_birth,
-        e.gender,
-        e.phone,
-        e.email,
-        e.address,
-        e.status,
-        c.clinic_name
-      FROM staff s
-      JOIN employees e ON s.staff_id = e.emp_id
-      LEFT JOIN clinics c ON s.clinic_id = c.clinic_id
-      WHERE s.staff_id = @id
-    `;
-    
-    const result = await executeQuery(query, { id });
-    
+
+    const query = `${baseSelect} WHERE s.StaffID = @id`;
+    const result = await executeQuery(query, { id: Number(id) });
+
     if (result.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Staff not found'
+        message: 'Staff not found',
       });
     }
-    
+
     res.json({
       success: true,
-      data: result.recordset[0]
+      data: result.recordset[0],
     });
   } catch (error) {
     console.error('Get staff error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching staff',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -119,57 +103,54 @@ export const getStaffById = async (req, res) => {
 export const createStaff = async (req, res) => {
   try {
     const { fullname, dateOfBirth, gender, phone, email, address, position, clinicId } = req.body;
-    
-    // Validate required fields
+
     if (!fullname || !phone || !position) {
       return res.status(400).json({
         success: false,
-        message: 'Fullname, phone, and position are required'
+        message: 'Fullname, phone, and position are required',
       });
     }
-    
-    // Create employee first
-    const empQuery = `
-      INSERT INTO employees (fullname, date_of_birth, gender, phone, email, address, employee_type, status)
-      OUTPUT INSERTED.emp_id
-      VALUES (@fullname, @dateOfBirth, @gender, @phone, @email, @address, 'S', 'active')
+
+    const insertQuery = `
+      INSERT INTO Staff (FullName, DateOfBirth, Gender, PhoneNumber, Email, Address, Position, ClinicID, Status, CreatedDate)
+      OUTPUT
+        INSERTED.StaffID AS staff_id,
+        INSERTED.Position AS position,
+        INSERTED.ClinicID AS clinic_id,
+        INSERTED.FullName AS fullname,
+        INSERTED.DateOfBirth AS date_of_birth,
+        INSERTED.Gender AS gender,
+        INSERTED.PhoneNumber AS phone,
+        INSERTED.Email AS email,
+        INSERTED.Address AS address,
+        INSERTED.Status AS status,
+        INSERTED.CreatedDate AS created_date,
+        INSERTED.UpdatedDate AS updated_date
+      VALUES (@fullname, @dateOfBirth, @gender, @phone, @email, @address, @position, @clinicId, 'active', GETDATE())
     `;
-    
-    const empResult = await executeQuery(empQuery, {
+
+    const result = await executeQuery(insertQuery, {
       fullname,
       dateOfBirth: dateOfBirth || null,
       gender: gender || 'Other',
       phone,
       email: email || null,
-      address: address || null
-    });
-    
-    const empId = empResult.recordset[0].emp_id;
-    
-    // Create staff record
-    const staffQuery = `
-      INSERT INTO staff (staff_id, position, clinic_id)
-      OUTPUT INSERTED.*
-      VALUES (@empId, @position, @clinicId)
-    `;
-    
-    const staffResult = await executeQuery(staffQuery, {
-      empId,
+      address: address || null,
       position,
-      clinicId: clinicId || null
+      clinicId: clinicId ? Number(clinicId) : null,
     });
-    
+
     res.status(201).json({
       success: true,
       message: 'Staff created successfully',
-      data: { emp_id: empId, ...staffResult.recordset[0] }
+      data: result.recordset[0],
     });
   } catch (error) {
     console.error('Create staff error:', error);
     res.status(500).json({
       success: false,
       message: 'Error creating staff',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -179,59 +160,67 @@ export const updateStaff = async (req, res) => {
   try {
     const { id } = req.params;
     const { fullname, dateOfBirth, gender, phone, email, address, position, clinicId, status } = req.body;
-    
-    // Update employee
-    const empQuery = `
-      UPDATE employees
-      SET 
-        fullname = COALESCE(@fullname, fullname),
-        date_of_birth = COALESCE(@dateOfBirth, date_of_birth),
-        gender = COALESCE(@gender, gender),
-        phone = COALESCE(@phone, phone),
-        email = @email,
-        address = @address,
-        status = COALESCE(@status, status)
-      WHERE emp_id = @id AND employee_type = 'S'
+
+    const updateQuery = `
+      UPDATE Staff
+      SET
+        FullName = COALESCE(@fullname, FullName),
+        DateOfBirth = COALESCE(@dateOfBirth, DateOfBirth),
+        Gender = COALESCE(@gender, Gender),
+        PhoneNumber = COALESCE(@phone, PhoneNumber),
+        Email = @email,
+        Address = @address,
+        Position = COALESCE(@position, Position),
+        ClinicID = @clinicId,
+        Status = COALESCE(@status, Status),
+        UpdatedDate = GETDATE()
+      OUTPUT
+        INSERTED.StaffID AS staff_id,
+        INSERTED.Position AS position,
+        INSERTED.ClinicID AS clinic_id,
+        INSERTED.FullName AS fullname,
+        INSERTED.DateOfBirth AS date_of_birth,
+        INSERTED.Gender AS gender,
+        INSERTED.PhoneNumber AS phone,
+        INSERTED.Email AS email,
+        INSERTED.Address AS address,
+        INSERTED.Status AS status,
+        INSERTED.CreatedDate AS created_date,
+        INSERTED.UpdatedDate AS updated_date
+      WHERE StaffID = @id
     `;
-    
-    await executeQuery(empQuery, {
-      id,
-      fullname,
-      dateOfBirth,
-      gender,
-      phone,
-      email,
-      address,
-      status
+
+    const result = await executeQuery(updateQuery, {
+      id: Number(id),
+      fullname: fullname || null,
+      dateOfBirth: dateOfBirth || null,
+      gender: gender || null,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      position: position || null,
+      clinicId: clinicId ? Number(clinicId) : null,
+      status: status || null,
     });
-    
-    // Update staff
-    const staffQuery = `
-      UPDATE staff
-      SET 
-        position = COALESCE(@position, position),
-        clinic_id = @clinicId
-      OUTPUT INSERTED.*
-      WHERE staff_id = @id
-    `;
-    
-    const result = await executeQuery(staffQuery, {
-      id,
-      position,
-      clinicId
-    });
-    
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Staff not found',
+      });
+    }
+
     res.json({
       success: true,
       message: 'Staff updated successfully',
-      data: result.recordset[0]
+      data: result.recordset[0],
     });
   } catch (error) {
     console.error('Update staff error:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating staff',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -240,21 +229,27 @@ export const updateStaff = async (req, res) => {
 export const deleteStaff = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete staff (cascade will handle employee)
-    await executeQuery(`DELETE FROM staff WHERE staff_id = @id`, { id });
-    await executeQuery(`DELETE FROM employees WHERE emp_id = @id`, { id });
-    
+
+    const check = await executeQuery('SELECT StaffID FROM Staff WHERE StaffID = @id', { id: Number(id) });
+    if (check.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Staff not found',
+      });
+    }
+
+    await executeQuery('DELETE FROM Staff WHERE StaffID = @id', { id: Number(id) });
+
     res.json({
       success: true,
-      message: 'Staff deleted successfully'
+      message: 'Staff deleted successfully',
     });
   } catch (error) {
     console.error('Delete staff error:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting staff',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -264,5 +259,5 @@ export default {
   getStaffById,
   createStaff,
   updateStaff,
-  deleteStaff
+  deleteStaff,
 };

@@ -4,6 +4,32 @@
 
 import { executeQuery } from '../config/database.js';
 import { isValidDate } from '../utils/validators.js';
+import {
+  emitAppointmentCreated,
+  emitAppointmentUpdated,
+  emitAppointmentDeleted,
+} from '../socket/index.js';
+
+const fetchAppointmentRealtimeView = async (appointmentId) => {
+  const query = `
+    SELECT TOP 1
+      a.AppointmentID,
+      a.AppointmentDate,
+      a.AppointmentTime,
+      a.Status,
+      a.PatientID,
+      a.DoctorID,
+      p.FullName AS PatientName,
+      d.FullName AS DoctorName
+    FROM Appointments a
+    LEFT JOIN Patients p ON a.PatientID = p.PatientID
+    LEFT JOIN Doctors d ON a.DoctorID = d.DoctorID
+    WHERE a.AppointmentID = @id
+  `;
+
+  const result = await executeQuery(query, { id: appointmentId });
+  return result.recordset[0] || null;
+};
 
 /**
  * Get all appointments
@@ -185,6 +211,9 @@ export const createAppointment = async (req, res) => {
       message: 'Appointment created successfully',
       data: result.recordset[0]
     });
+
+    const realtimeAppointment = await fetchAppointmentRealtimeView(result.recordset[0].AppointmentID);
+    emitAppointmentCreated(realtimeAppointment || result.recordset[0]);
   } catch (error) {
     console.error('Create appointment error:', error);
     res.status(500).json({
@@ -235,6 +264,9 @@ export const updateAppointment = async (req, res) => {
       message: 'Appointment updated successfully',
       data: result.recordset[0]
     });
+
+    const realtimeAppointment = await fetchAppointmentRealtimeView(result.recordset[0].AppointmentID);
+    emitAppointmentUpdated(realtimeAppointment || result.recordset[0]);
   } catch (error) {
     console.error('Update appointment error:', error);
     res.status(500).json({
@@ -251,6 +283,8 @@ export const updateAppointment = async (req, res) => {
 export const deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const snapshot = await fetchAppointmentRealtimeView(id);
 
     const deleteQuery = `
       DELETE FROM Appointments
@@ -270,6 +304,9 @@ export const deleteAppointment = async (req, res) => {
       success: true,
       message: 'Appointment deleted successfully'
     });
+
+    const deleted = snapshot || { AppointmentID: Number(id), Status: 'deleted' };
+    emitAppointmentDeleted(deleted);
   } catch (error) {
     console.error('Delete appointment error:', error);
     res.status(500).json({

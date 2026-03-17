@@ -4,7 +4,7 @@
 
 import bcrypt from 'bcryptjs';
 import { executeQuery } from '../config/database.js';
-import { generateToken, generateRefreshToken } from '../utils/jwt.js';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { isValidEmail, validatePassword, sanitizeInput } from '../utils/validators.js';
 
 /**

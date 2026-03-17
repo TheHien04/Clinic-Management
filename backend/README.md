@@ -47,22 +47,59 @@ cp .env.example .env
 
 Edit `.env` file with your configuration:
 ```env
-PORT=5000
+PORT=5055
+PORT_FALLBACK_ATTEMPTS=10
 DB_SERVER=localhost
 DB_NAME=ClinicManagement
 DB_USER=sa
 DB_PASSWORD=your_password
 JWT_SECRET=your_secret_key
+INNOVATION_KEY_ENCRYPTION_SECRET=your_strong_encryption_secret
 ```
 
-3. **Start the server:**
+If your selected port is busy, backend will automatically retry on the next ports
+(`PORT`, `PORT + 1`, ...) up to `PORT_FALLBACK_ATTEMPTS`.
+
+3. **Run versioned DB migrations (schema + analytics artifacts):**
+```bash
+npm run db:migrate
+
+# Backward-compatible alias
+npm run db:deploy
+```
+
+Migrations are stored in `backend/migrations/` and tracked in `dbo.SchemaMigrations`.
+
+4. **Start the server:**
 ```bash
 # Development mode with auto-reload
 npm run dev
 
+# Stable dev port profile (default 5055)
+npm run dev:stable
+
 # Production mode
 npm start
+
+# Stable production port profile (default 5055)
+npm run start:stable
 ```
+
+If you want to run both frontend and backend together on fixed ports from the
+repository root (`Clinic-Management/`), use:
+
+```bash
+npm run dev:stable:keep
+npm run dev:stable:health
+npm run dev:stable:status
+
+# stop background stack
+npm run dev:stable:stop
+```
+
+Note: root `npm run dev:stable` is a foreground long-running command. If the
+terminal session is interrupted, it exits with a non-zero code even when startup
+was healthy.
 
 ## 📡 API Endpoints
 
@@ -98,6 +135,21 @@ npm start
 ### File Upload
 - `POST /api/upload/single` - Upload single file
 - `POST /api/upload/multiple` - Upload multiple files
+
+### Innovation (Protected)
+- `GET /api/innovation/security/posture` - Runtime security posture snapshot
+- `POST /api/innovation/ai/triage` - Run AI triage and return signed decision package
+- `POST /api/innovation/ai-triage/verify` - Verify signed decision package
+- `GET /api/innovation/ai-triage/policy` - Get triage policy
+- `PUT /api/innovation/ai-triage/policy` - Update triage policy
+- `GET /api/innovation/ai-triage/policy/history` - List triage policy versions
+- `GET /api/innovation/ai-triage/audit-trail` - List signed triage audit trail
+- `GET /api/innovation/ai-triage/signing-keys` - List signing keys and active key
+- `POST /api/innovation/ai-triage/signing-keys/rotate` - Rotate signing key
+- `POST /api/innovation/ai-triage/signing-keys/:keyId/activate` - Activate a key
+- `POST /api/innovation/ai-triage/signing-keys/:keyId/revoke` - Revoke a key
+- `GET /api/innovation/compliance/evidence` - Export compliance evidence package with integrity hash
+- `POST /api/innovation/maintenance/cleanup` - Run maintenance cleanup for revoked keys and audit retention
 
 ## 🔌 WebSocket Events
 
@@ -197,6 +249,11 @@ All errors return JSON format:
 ```
 
 ## 🧪 Testing
+
+Run backend smoke tests:
+```bash
+npm run test:smoke
+```
 
 Health check endpoint:
 ```bash
