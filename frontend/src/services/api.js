@@ -9,6 +9,21 @@ import { getApiBaseUrl } from '../utils/runtimeEnv';
 // API base URL
 const API_BASE_URL = getApiBaseUrl();
 
+const isLikelyJwt = (value) => {
+  const token = String(value || '').trim();
+  return token.split('.').length === 3;
+};
+
+const clearSessionAndRedirectToLogin = () => {
+  localStorage.removeItem(STORAGE_KEYS.USER);
+  localStorage.removeItem(STORAGE_KEYS.TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+};
+
 // Create axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -22,11 +37,14 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-    
-    if (token) {
+
+    if (token && isLikelyJwt(token)) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (token) {
+      // Legacy or malformed token should not be sent to protected APIs.
+      clearSessionAndRedirectToLogin();
     }
-    
+
     return config;
   },
   (error) => {
@@ -50,8 +68,8 @@ apiClient.interceptors.response.use(
       try {
         // Try to refresh token
         const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-        
-        if (refreshToken) {
+
+        if (refreshToken && isLikelyJwt(refreshToken)) {
           const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
             refreshToken,
           });
@@ -63,12 +81,11 @@ apiClient.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return apiClient(originalRequest);
         }
+
+        clearSessionAndRedirectToLogin();
       } catch (refreshError) {
         // Refresh failed, logout user
-        localStorage.removeItem(STORAGE_KEYS.USER);
-        localStorage.removeItem(STORAGE_KEYS.TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        window.location.href = '/login';
+        clearSessionAndRedirectToLogin();
         return Promise.reject(refreshError);
       }
     }

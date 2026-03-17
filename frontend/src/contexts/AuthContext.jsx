@@ -11,6 +11,8 @@ import { initSocket, disconnectSocket } from '../services/socket';
 
 const AuthContext = createContext(null);
 
+const isLikelyJwt = (value) => String(value || '').trim().split('.').length === 3;
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,8 +22,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
     const storedToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
-    
-    if (storedUser && storedToken) {
+    const storedRefreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+    if (storedUser && storedToken && storedRefreshToken && isLikelyJwt(storedToken) && isLikelyJwt(storedRefreshToken)) {
       try {
         const userData = JSON.parse(storedUser);
         setUser(userData);
@@ -33,6 +36,9 @@ export const AuthProvider = ({ children }) => {
         console.error('Failed to parse user data:', error);
         logout();
       }
+    } else if (storedUser || storedToken || storedRefreshToken) {
+      // Clean up partial or malformed session artifacts from older builds.
+      logout();
     }
     setLoading(false);
   }, []);
