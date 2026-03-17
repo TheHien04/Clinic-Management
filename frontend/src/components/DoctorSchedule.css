@@ -6,12 +6,12 @@
 .doctor-schedule-table th,
 .doctor-schedule-table td {
   padding: 7px 10px;
-  border-bottom: 1px solid #e3f2fd;
+  border-bottom: 1px solid var(--brand-100);
   text-align: center;
 }
 .doctor-schedule-table th {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: var(--brand-100);
+  color: var(--brand-500);
   font-weight: 600;
 }
 .doctor-schedule-table td {

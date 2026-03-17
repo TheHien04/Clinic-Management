@@ -5,6 +5,30 @@
 import apiClient from './api';
 import { API_ENDPOINTS } from '../constants';
 
+const normalizeStatus = (status) => String(status || 'pending').toLowerCase();
+
+const mapAppointmentFromBackend = (item) => {
+  // Support both backend schema and legacy frontend mock schema.
+  if (item.AppointmentID || item.AppointmentDate) {
+    return {
+      id: item.AppointmentID,
+      date: item.AppointmentDate ? String(item.AppointmentDate).slice(0, 10) : '',
+      time: item.AppointmentTime ? String(item.AppointmentTime).slice(0, 5) : '',
+      status: normalizeStatus(item.Status),
+      patient: item.PatientName || `Patient #${item.PatientID || ''}`,
+      doctor: item.DoctorName || `Doctor #${item.DoctorID || ''}`,
+      fee: Number(item.Fee || 0),
+      service: item.SpecialtyName || 'General Consultation',
+      notes: item.Notes || '',
+    };
+  }
+
+  return {
+    ...item,
+    status: normalizeStatus(item.status),
+  };
+};
+
 /**
  * Get all appointments
  * @param {Object} filters - Query filters
@@ -15,6 +39,25 @@ export const getAppointmentsAPI = async (filters = {}) => {
     params: filters,
   });
   return response.data;
+};
+
+/**
+ * Fetch appointments and normalize them for analytics components.
+ * Returns [] on auth/network error so UI can fallback gracefully.
+ */
+export const getAppointmentsForAnalyticsAPI = async (filters = {}) => {
+  try {
+    const response = await apiClient.get(API_ENDPOINTS.APPOINTMENTS, {
+      params: filters,
+    });
+    const rows = Array.isArray(response.data) ? response.data : [];
+    return rows.map(mapAppointmentFromBackend);
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      return [];
+    }
+    throw error;
+  }
 };
 
 /**
@@ -60,6 +103,7 @@ export const deleteAppointmentAPI = async (id) => {
 
 export default {
   getAppointmentsAPI,
+  getAppointmentsForAnalyticsAPI,
   getAppointmentByIdAPI,
   createAppointmentAPI,
   updateAppointmentAPI,

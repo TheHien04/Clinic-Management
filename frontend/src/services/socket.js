@@ -5,8 +5,9 @@
 
 import { io } from 'socket.io-client';
 import { STORAGE_KEYS } from '../constants';
+import { getSocketBaseUrl } from '../utils/runtimeEnv';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = getSocketBaseUrl();
 
 let socket = null;
 let isConnected = false;
@@ -22,8 +23,8 @@ export const initSocket = () => {
 
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
 
-  if (!token || token.startsWith('fake_token_')) {
-    console.log('⚠️ No valid token, skipping socket connection');
+  if (!token) {
+    console.log('⚠️ No token, skipping socket connection');
     return null;
   }
 
@@ -157,6 +158,57 @@ export const onBroadcast = (callback) => {
 };
 
 /**
+ * Subscribe to ops-alert updates from server side realtime channels.
+ * Supports both direct event and broadcast envelope styles.
+ * @param {Function} callback - Callback function
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeOpsAlerts = (callback) => {
+  if (!socket || typeof callback !== 'function') {
+    return () => {};
+  }
+
+  const onDirectOpsAlert = (payload) => {
+    callback(payload);
+  };
+
+  const onBroadcastOpsAlert = (message) => {
+    if (message?.type === 'ops-alerts:update' && message?.payload) {
+      callback(message.payload);
+    }
+  };
+
+  socket.on('ops-alerts:update', onDirectOpsAlert);
+  socket.on('broadcast', onBroadcastOpsAlert);
+
+  return () => {
+    socket.off('ops-alerts:update', onDirectOpsAlert);
+    socket.off('broadcast', onBroadcastOpsAlert);
+  };
+};
+
+/**
+ * Subscribe to innovation emergency escalation events.
+ * @param {Function} callback - Callback function
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeInnovationEmergency = (callback) => {
+  if (!socket || typeof callback !== 'function') {
+    return () => {};
+  }
+
+  const onInnovationEmergency = (payload) => {
+    callback(payload);
+  };
+
+  socket.on('innovation:emergency', onInnovationEmergency);
+
+  return () => {
+    socket.off('innovation:emergency', onInnovationEmergency);
+  };
+};
+
+/**
  * Remove event listener
  * @param {string} event - Event name
  * @param {Function} callback - Callback function
@@ -179,5 +231,7 @@ export default {
   onAppointmentDeleted,
   onNotification,
   onBroadcast,
+  subscribeOpsAlerts,
+  subscribeInnovationEmergency,
   offEvent,
 };

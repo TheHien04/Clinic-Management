@@ -18,10 +18,10 @@ function DoctorRadarChart({ doctors }) {
         <PolarGrid />
         <PolarAngleAxis dataKey="name" />
         <PolarRadiusAxis angle={30} domain={[0, 'auto']} />
-        <Radar name="KPI" dataKey="KPI" stroke="#1976d2" fill="#1976d2" fillOpacity={0.5} />
-        <Radar name="Rating" dataKey="Rating" stroke="#43a047" fill="#43a047" fillOpacity={0.4} />
-        <Radar name="Patients" dataKey="Patients" stroke="#ffa000" fill="#ffa000" fillOpacity={0.3} />
-        <Radar name="Appointments" dataKey="Appointments" stroke="#d32f2f" fill="#d32f2f" fillOpacity={0.2} />
+        <Radar name="KPI" dataKey="KPI" stroke="var(--brand-500)" fill="var(--brand-500)" fillOpacity={0.5} />
+        <Radar name="Rating" dataKey="Rating" stroke="var(--success-fg)" fill="var(--success-fg)" fillOpacity={0.4} />
+        <Radar name="Patients" dataKey="Patients" stroke="var(--warning-fg)" fill="var(--warning-fg)" fillOpacity={0.3} />
+        <Radar name="Appointments" dataKey="Appointments" stroke="var(--danger-fg)" fill="var(--danger-fg)" fillOpacity={0.2} />
         <Tooltip />
       </RadarChart>
     </ResponsiveContainer>

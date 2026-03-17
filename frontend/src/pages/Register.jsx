@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Login.css';
 import { FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { registerAPI } from '../services/auth';
+import { ROUTES, STORAGE_KEYS } from '../constants';
 
-function Register({ onNavigate }) {
-  const MOCK_USERS = [
-    { email: 'hiendepzai', password: '123456' },
-    { email: 'hienhihi', password: '159357' },
-    { email: 'admin@clinic.com', password: '123456' },
-  ];
+function Register() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '', confirm: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -29,16 +28,12 @@ function Register({ onNavigate }) {
     return score;
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     if (!form.email || !form.password || !form.confirm) {
       setError('Please fill all fields!');
-      return;
-    }
-    if (MOCK_USERS.find(u => u.email === form.email)) {
-      setError('Email/username already exists!');
       return;
     }
     if (form.password !== form.confirm) {
@@ -50,10 +45,23 @@ function Register({ onNavigate }) {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setSuccess('Registration successful! You can now login.');
+    try {
+      const data = await registerAPI({
+        email: form.email,
+        password: form.password,
+        name: form.email,
+      });
+
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
+      localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
+      setSuccess('Registration successful! Redirecting to dashboard...');
+      navigate(`/${ROUTES.DASHBOARD}`);
+    } catch (err) {
+      setError(err?.message || 'Registration failed. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -71,27 +79,27 @@ function Register({ onNavigate }) {
           <div className="input-group" style={{position:'relative'}}>
             <input name="password" type={showPassword ? 'text' : 'password'} placeholder="Password" value={form.password} onChange={handleChange} required />
             <span style={{position:'absolute',right:12,top:10,cursor:'pointer'}} onClick={()=>setShowPassword(v=>!v)}>
-              {showPassword ? <FaEyeSlash size={18} color="#1976d2" /> : <FaEye size={18} color="#1976d2" />}
+              {showPassword ? <FaEyeSlash size={18} color="var(--brand-500)" /> : <FaEye size={18} color="var(--brand-500)" />}
             </span>
           </div>
           <div style={{fontSize:13,marginBottom:6}}>
-            Password strength: <span style={{color: passwordStrength(form.password) >= 3 ? '#43a047' : passwordStrength(form.password) === 2 ? '#ffa000' : '#d32f2f',fontWeight:600}}>
+            Password strength: <span style={{color: passwordStrength(form.password) >= 3 ? 'var(--success-fg)' : passwordStrength(form.password) === 2 ? 'var(--warning-fg)' : 'var(--danger-fg)',fontWeight:600}}>
               {passwordStrength(form.password) >= 3 ? 'Strong' : passwordStrength(form.password) === 2 ? 'Medium' : 'Weak'}
             </span>
           </div>
           <div className="input-group" style={{position:'relative'}}>
             <input name="confirm" type={showConfirm ? 'text' : 'password'} placeholder="Confirm Password" value={form.confirm} onChange={handleChange} required />
             <span style={{position:'absolute',right:12,top:10,cursor:'pointer'}} onClick={()=>setShowConfirm(v=>!v)}>
-              {showConfirm ? <FaEyeSlash size={18} color="#1976d2" /> : <FaEye size={18} color="#1976d2" />}
+              {showConfirm ? <FaEyeSlash size={18} color="var(--brand-500)" /> : <FaEye size={18} color="var(--brand-500)" />}
             </span>
           </div>
-          {error && <div className="login-error"><FaExclamationCircle style={{marginRight:6,color:'#d32f2f'}} />{error}</div>}
+          {error && <div className="login-error"><FaExclamationCircle style={{marginRight:6,color:'var(--danger-fg)'}} />{error}</div>}
           {success && <div className="login-success">{success}</div>}
           <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Registering...' : 'Register'}</button>
         </form>
         <div className="login-link" style={{marginTop:18}}>
           <span>Already have an account?</span>
-          <button type="button" className="login-register-btn" onClick={() => onNavigate && onNavigate('login')}>Login</button>
+          <button type="button" className="login-register-btn" onClick={() => navigate(`/${ROUTES.LOGIN}`)}>Login</button>
         </div>
       </div>
     </div>

@@ -1,0 +1,123 @@
+.innovation-page {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #ecf7ff 0%, #f9fcff 45%, #eefbf6 100%);
+}
+
+.innovation-main {
+  flex: 1;
+  padding: 24px;
+}
+
+.innovation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.innovation-card {
+  background: #fff;
+  border: 1px solid #d8e8f5;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 6px 20px rgba(7, 51, 74, 0.08);
+}
+
+.innovation-card h3 {
+  margin: 0 0 10px;
+  color: var(--brand-500);
+}
+
+.innovation-form {
+  display: grid;
+  gap: 8px;
+}
+
+.innovation-form input,
+.innovation-form textarea,
+.innovation-form select {
+  border: 1px solid #bfd6ea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.innovation-form button {
+  border: none;
+  border-radius: 8px;
+  background: var(--brand-500);
+  color: #fff;
+  font-weight: 700;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.innovation-chip {
+  display: inline-block;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  background: #ebf5ff;
+  border: 1px solid #cae1f8;
+  color: #1b4b76;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.innovation-kpi {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f4e7f;
+  margin: 8px 0;
+}
+
+.innovation-card button {
+  border: none;
+  border-radius: 8px;
+  background: #155a8a;
+  color: #fff;
+  font-weight: 700;
+  padding: 9px 12px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.innovation-policy-editor {
+  width: 100%;
+  border: 1px solid #bfd6ea;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.innovation-inline-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-list {
+  margin-top: 10px;
+  max-height: 220px;
+  overflow: auto;
+  border-top: 1px dashed #d5e6f2;
+  padding-top: 8px;
+}
+
+.innovation-list p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #1f3e57;
+}
+
+.innovation-emergency-card {
+  border-color: #f2c6c6;
+  background: linear-gradient(160deg, #fff8f8 0%, #fff 55%);
+}
+
+.innovation-emergency-card h3 {
+  color: #932a2a;
+}

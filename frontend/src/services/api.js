@@ -4,9 +4,10 @@
 
 import axios from 'axios';
 import { STORAGE_KEYS } from '../constants';
+import { getApiBaseUrl } from '../utils/runtimeEnv';
 
 // API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // Create axios instance
 const apiClient = axios.create({
@@ -22,7 +23,7 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     
-    if (token && token !== 'fake_token' && !token.startsWith('fake_token_')) {
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     

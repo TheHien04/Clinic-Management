@@ -1,9 +1,139 @@
 /* index.css for global styles and Tailwind integration */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+  --brand-50: #ecfaf8;
+  --brand-100: #d4f2ee;
+  --brand-200: #afe3d9;
+  --brand-500: #0a8d82;
+  --brand-600: #0b6e66;
+  --brand-700: #0b5751;
+
+  --surface-0: #ffffff;
+  --surface-1: #f3f8f8;
+  --surface-2: #e9f1f1;
+  --surface-border: #c9dddd;
+
+  --text-strong: #123636;
+  --text-normal: #2e5757;
+  --text-muted: #628282;
+
+  --success-bg: #eaf7ef;
+  --success-fg: #1f7a42;
+  --warning-bg: #fff7e8;
+  --warning-fg: #a86407;
+  --danger-bg: #fdecec;
+  --danger-fg: #b03a3a;
+
+  --chart-cyan: #1098ad;
+  --chart-sky: #0f7fa2;
+  --chart-violet: #406a9c;
+  --chart-orange: #e8891a;
+  --chart-slate: #57797f;
+
+  --shadow-sm: 0 5px 16px rgba(12, 90, 87, 0.08);
+  --shadow-md: 0 18px 34px rgba(12, 90, 87, 0.11);
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+}
+
+:root[data-theme='slate'] {
+  --brand-50: #253246;
+  --brand-100: #314666;
+  --brand-200: #3f5f84;
+  --brand-500: #66c5c0;
+  --brand-600: #50aba6;
+  --brand-700: #41908b;
+
+  --surface-0: #172536;
+  --surface-1: #121d2b;
+  --surface-2: #1a2b40;
+  --surface-border: #28405b;
+
+  --text-strong: #e3effc;
+  --text-normal: #c5d7ea;
+  --text-muted: #95abc2;
+
+  --success-bg: #173528;
+  --success-fg: #79d8ac;
+  --warning-bg: #3d2f1b;
+  --warning-fg: #f6bf72;
+  --danger-bg: #3f2327;
+  --danger-fg: #f08d95;
+
+  --shadow-sm: 0 8px 20px rgba(2, 7, 15, 0.28);
+  --shadow-md: 0 20px 34px rgba(2, 7, 15, 0.34);
+}
+
 body {
-  font-family: 'Inter', 'Roboto', Arial, sans-serif;
-  background-color: #f6fafd;
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+  background:
+    radial-gradient(circle at 10% -10%, rgba(71, 184, 170, 0.2) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(53, 138, 180, 0.16) 0%, transparent 42%),
+    linear-gradient(180deg, #f7fcfc 0%, #f3f8f8 48%, #ffffff 100%);
+  color: var(--text-strong);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  animation: pageFadeIn 380ms ease;
+}
+
+:root[data-theme='slate'] body {
+  background:
+    radial-gradient(circle at 12% -10%, rgba(75, 151, 188, 0.26) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(78, 190, 171, 0.2) 0%, transparent 42%),
+    linear-gradient(180deg, #0f1825 0%, #111b29 48%, #0f1724 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+}
+
+::selection {
+  background: rgba(10, 141, 130, 0.18);
+  color: #113f3e;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

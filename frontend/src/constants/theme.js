@@ -1,16 +1,16 @@
 // Theme constants - colors, sizes, spacing
 export const COLORS = {
   // Primary colors
-  primary: '#1976d2',
+  primary: 'var(--brand-500)',
   primaryLight: '#64b5f6',
-  primaryDark: '#1565c0',
+  primaryDark: 'var(--brand-600)',
   
   // Status colors
-  success: '#43a047',
-  warning: '#ffa000',
-  warningLight: '#fbc02d',
-  error: '#d32f2f',
-  info: '#1976d2',
+  success: 'var(--success-fg)',
+  warning: 'var(--warning-fg)',
+  warningLight: 'var(--warning-fg)',
+  error: 'var(--danger-fg)',
+  info: 'var(--brand-500)',
   
   // UI colors
   background: '#f7faff',
@@ -19,26 +19,26 @@ export const COLORS = {
   cardBackground: '#fff',
   
   // Border colors
-  border: '#e3f2fd',
+  border: 'var(--brand-100)',
   borderLight: '#e3eaf3',
-  borderDark: '#b0bec5',
+  borderDark: 'var(--surface-border)',
   
   // Text colors
-  textPrimary: '#1976d2',
+  textPrimary: 'var(--brand-500)',
   textSecondary: '#444',
   textLight: '#888',
   textWhite: '#fff',
   
   // Special colors
-  chronic: '#fbc02d',
-  child: '#1976d2',
-  elderly: '#d32f2f',
+  chronic: 'var(--warning-fg)',
+  child: 'var(--brand-500)',
+  elderly: 'var(--danger-fg)',
   
   // Chart colors
-  chartBlue: '#1976d2',
-  chartGreen: '#43a047',
+  chartBlue: 'var(--brand-500)',
+  chartGreen: 'var(--success-fg)',
   chartYellow: '#ffb74d',
-  chartRed: '#d32f2f',
+  chartRed: 'var(--danger-fg)',
   chartTeal: '#4db6ac',
   chartOrange: '#ff9800',
 };
@@ -124,5 +124,5 @@ export const STATUS_COLORS = {
 export const CHART_COLORS = {
   appointment: [COLORS.chartBlue, COLORS.chartGreen, COLORS.chartYellow, COLORS.chartRed],
   pie: [COLORS.chartTeal, COLORS.chartYellow, COLORS.chartBlue],
-  status: ['#4caf50', '#fbc02d', '#1976d2', '#ff9800', '#d32f2f'],
+  status: ['#4caf50', 'var(--warning-fg)', 'var(--brand-500)', '#ff9800', 'var(--danger-fg)'],
 };

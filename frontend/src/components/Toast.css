@@ -4,7 +4,7 @@
   right: 32px;
   min-width: 220px;
   background: #fff;
-  color: #1976d2;
+  color: var(--brand-500);
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(25, 118, 210, 0.13);
   padding: 16px 32px 16px 18px;
@@ -16,11 +16,11 @@
   animation: fadeIn 0.4s;
 }
 .toast-success {
-  border-left: 5px solid #43a047;
+  border-left: 5px solid var(--success-fg);
 }
 .toast-error {
-  border-left: 5px solid #d32f2f;
-  color: #d32f2f;
+  border-left: 5px solid var(--danger-fg);
+  color: var(--danger-fg);
 }
 .toast-close {
   background: none;

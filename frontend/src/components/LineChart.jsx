@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatNumber } from '../utils/i18nFormat';
 
 function LineChart({ appointments }) {
   // Tính tổng revenue theo từng tháng
@@ -29,7 +30,7 @@ function LineChart({ appointments }) {
       {points.length > 1 && (
         <polyline
           fill="none"
-          stroke="#1976d2"
+          stroke="var(--brand-500)"
           strokeWidth={3}
           points={points.map(p => `${p.x},${p.y}`).join(' ')}
         />
@@ -37,8 +38,8 @@ function LineChart({ appointments }) {
       {/* Vẽ các điểm */}
       {points.map(p => (
         <g key={p.month}>
-          <circle cx={p.x} cy={p.y} r={6} fill="#1976d2" />
-          <text x={p.x} y={p.y - 12} fontSize={13} textAnchor="middle" fill="#1976d2" fontWeight={600}>{p.revenue.toLocaleString()} đ</text>
+          <circle cx={p.x} cy={p.y} r={6} fill="var(--brand-500)" />
+          <text x={p.x} y={p.y - 12} fontSize={13} textAnchor="middle" fill="var(--brand-500)" fontWeight={600}>{formatNumber(p.revenue)} đ</text>
           <text x={p.x} y={chartHeight - 5} fontSize={13} textAnchor="middle" fill="#333">{p.month}</text>
         </g>
       ))}

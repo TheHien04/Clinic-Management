@@ -6,9 +6,8 @@ import App from './App.jsx'
 
 const root = document.getElementById('root')
 if (!root) {
-  console.error('❌ Root element not found!')
+  console.error('Root element not found')
 } else {
-  console.log('✅ Root element found, rendering App...')
   createRoot(root).render(
     <StrictMode>
       <App />

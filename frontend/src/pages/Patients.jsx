@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { DetailsIcon, EditIcon, DeleteIcon } from '../components/icons';
 import PatientModal from '../components/PatientModal';
 import PatientForm from '../components/PatientForm';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import { formatMonthShort } from '../utils/i18nFormat';
 import './Patients.css';
 import './Common.css';
 
@@ -30,6 +31,15 @@ const mockAppointments = [
   { patient: 'Nguyen Thi H', doctor: 'Dr. Anna', date: '2025-06-20', email: 'thih@gmail.com', phone: '0906789123', warning: '', dob: '1972-11-03' },
   // September patient for demo
   { patient: 'Pham Van K', doctor: 'Dr. Smith', date: '2025-09-05', email: 'phamk@gmail.com', phone: '0909999999', warning: '', dob: '1990-01-01' }
+];
+
+const basePatients = [
+  { id: 1, name: 'Nguyen Van A', email: 'vana@gmail.com', phone: '0901234567', warning: 'Chronic: Diabetes', dob: '1980-05-12' },
+  { id: 2, name: 'Tran Thi B', email: 'thib@gmail.com', phone: '0902345678', warning: '', dob: '2005-09-20' },
+  { id: 3, name: 'Le Van C', email: 'vanc@gmail.com', phone: '0903456789', warning: 'Chronic: Hypertension', dob: '1950-03-01' },
+  { id: 4, name: 'Pham Thi D', email: 'thid@gmail.com', phone: '0904567890', warning: '', dob: '1995-12-15' },
+  { id: 5, name: 'Hoang Minh G', email: 'minhg@gmail.com', phone: '0905678912', warning: 'Chronic: Asthma', dob: '2010-07-22' },
+  { id: 6, name: 'Nguyen Thi H', email: 'thih@gmail.com', phone: '0906789123', warning: '', dob: '1972-11-03' },
 ];
 
 // Thêm mockdata lịch hẹn hôm nay, giờ gần hiện tại để demo "Lịch hẹn trong 2 giờ tới"
@@ -63,22 +73,19 @@ export default function Patients() {
   const [modalHistory, setModalHistory] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editPatient, setEditPatient] = useState(null);
+  const searchInputRef = useRef(null);
+  const growthRef = useRef(null);
+  const tableRef = useRef(null);
+  const riskRef = useRef(null);
+  const outreachRef = useRef(null);
 
   // Lấy danh sách bệnh nhân duy nhất từ appointments và patients
   // Mock: enrich patients with more info
   // Mock: enrich patients with more info (chronic, email, phone)
   // Mock base data and appointments for all pages (April, June, August)
-  const base = [
-    { id: 1, name: 'Nguyen Van A', email: 'vana@gmail.com', phone: '0901234567', warning: 'Chronic: Diabetes', dob: '1980-05-12' },
-    { id: 2, name: 'Tran Thi B', email: 'thib@gmail.com', phone: '0902345678', warning: '', dob: '2005-09-20' },
-    { id: 3, name: 'Le Van C', email: 'vanc@gmail.com', phone: '0903456789', warning: 'Chronic: Hypertension', dob: '1950-03-01' },
-    { id: 4, name: 'Pham Thi D', email: 'thid@gmail.com', phone: '0904567890', warning: '', dob: '1995-12-15' },
-    { id: 5, name: 'Hoang Minh G', email: 'minhg@gmail.com', phone: '0905678912', warning: 'Chronic: Asthma', dob: '2010-07-22' },
-    { id: 6, name: 'Nguyen Thi H', email: 'thih@gmail.com', phone: '0906789123', warning: '', dob: '1972-11-03' },
-  ];
   // Use mockAppointments for all pages
   const patientList = useMemo(() => {
-    const all = [...base];
+    const all = [...basePatients];
     mockAppointments.forEach(app => {
       if (!all.find(p => p.name === app.patient)) {
         all.push({
@@ -92,9 +99,7 @@ export default function Patients() {
       }
     });
     return all;
-  }, [base]);
-  // Use mockAppointments for chart and filters
-  const appointments = mockAppointments;
+  }, []);
 
   // Lọc nâng cao & tìm kiếm thông minh
   const filtered = patientList.filter(p => {
@@ -129,6 +134,66 @@ export default function Patients() {
 
   // Lấy lịch sử khám cho từng bệnh nhân
   const getHistory = (name) => mockAppointments.filter(a => a.patient === name);
+
+  const patientRiskRows = useMemo(() => {
+    const today = new Date();
+
+    return filteredRecent.map((patient) => {
+      const history = getHistory(patient.name);
+      const lastVisit = history.length ? history[history.length - 1].date : '';
+      const age = patient.dob ? Math.floor((today.getTime() - new Date(patient.dob).getTime()) / 3.15576e10) : 35;
+      const chronic = patient.warning?.toLowerCase().includes('chronic');
+      const visits = history.length;
+
+      let daysSinceLastVisit = 180;
+      if (lastVisit) {
+        const delta = today.getTime() - new Date(lastVisit).getTime();
+        daysSinceLastVisit = Math.max(0, Math.round(delta / (24 * 60 * 60 * 1000)));
+      }
+
+      const riskScore = Math.min(100,
+        (chronic ? 38 : 10) +
+        (age >= 65 ? 22 : age < 18 ? 12 : 16) +
+        Math.min(24, daysSinceLastVisit * 0.12) +
+        Math.min(16, visits * 2)
+      );
+
+      const riskBand = riskScore >= 70 ? 'high' : riskScore >= 45 ? 'medium' : 'low';
+      const outreachPriority = riskBand === 'high' ? '24h nurse call + tele-consult' : riskBand === 'medium' ? '48h reminder + care coach' : 'Monthly preventive nudge';
+
+      return {
+        id: patient.id,
+        name: patient.name,
+        visits,
+        lastVisit: lastVisit || 'N/A',
+        riskScore: Math.round(riskScore),
+        riskBand,
+        outreachPriority,
+      };
+    }).sort((a, b) => b.riskScore - a.riskScore);
+  }, [filteredRecent]);
+
+  const riskCohorts = useMemo(() => {
+    const high = patientRiskRows.filter((row) => row.riskBand === 'high');
+    const medium = patientRiskRows.filter((row) => row.riskBand === 'medium');
+    const low = patientRiskRows.filter((row) => row.riskBand === 'low');
+    return {
+      high: { count: high.length, avg: high.length ? Math.round(high.reduce((sum, row) => sum + row.riskScore, 0) / high.length) : 0 },
+      medium: { count: medium.length, avg: medium.length ? Math.round(medium.reduce((sum, row) => sum + row.riskScore, 0) / medium.length) : 0 },
+      low: { count: low.length, avg: low.length ? Math.round(low.reduce((sum, row) => sum + row.riskScore, 0) / low.length) : 0 },
+    };
+  }, [patientRiskRows]);
+
+  const outreachQueue = useMemo(() => {
+    return patientRiskRows
+      .filter((row) => row.riskBand !== 'low')
+      .map((row, index) => ({
+        ...row,
+        etaHours: row.riskBand === 'high' ? 24 : 48,
+        queueRank: index + 1,
+      }))
+      .slice(0, 8);
+  }, [patientRiskRows]);
 
   // CRUD
   const handleAdd = () => { setEditPatient(null); setShowForm(true); };
@@ -187,7 +252,93 @@ export default function Patients() {
     { name: 'New', value: stats.newThisMonth },
     { name: 'Other', value: stats.total - stats.chronic - stats.newThisMonth }
   ];
-  const pieColors = ['#4db6ac', '#ffb74d', '#64b5f6'];
+  const pieColors = ['var(--success-fg)', 'var(--warning-fg)', 'var(--brand-500)'];
+
+  const formatMonthLabel = (month) => {
+    const [year, mon] = month.split('-').map(Number);
+    return formatMonthShort(new Date(year, mon - 1, 1));
+  };
+
+  const pieTooltipFormatter = (value, name) => {
+    const total = pieData.reduce((sum, item) => sum + item.value, 0);
+    const percent = total ? ((value / total) * 100).toFixed(1) : '0.0';
+    return [`${value} (${percent}%)`, name];
+  };
+
+  const growthTooltipFormatter = (value) => [`${value} patients`, 'New Patients'];
+
+  const runPatientsCommand = useCallback((action) => {
+    if (!action) return;
+
+    if (action === 'add') {
+      setEditPatient(null);
+      setShowForm(true);
+      return;
+    }
+
+    if (action === 'filter-chronic') {
+      setChronicFilter(true);
+      return;
+    }
+
+    if (action === 'clear-filters') {
+      setSearch('');
+      setDoctorFilter('');
+      setChronicFilter(false);
+      setEmailFilter('');
+      setPhoneFilter('');
+      setIdFilter('');
+      setLastVisitFilter('');
+      setVisitCountFilter('');
+      return;
+    }
+
+    if (action === 'focus-search') {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    if (action === 'jump-growth') {
+      growthRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'jump-table') {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'jump-risk') {
+      riskRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'jump-outreach') {
+      outreachRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'focus-high-risk') {
+      setChronicFilter(true);
+      riskRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  useEffect(() => {
+    const urlAction = new URLSearchParams(window.location.search).get('cp_action');
+    if (urlAction) {
+      runPatientsCommand(urlAction);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    const onCommand = (event) => {
+      const action = event?.detail?.action;
+      runPatientsCommand(action);
+    };
+
+    window.addEventListener('patients:command', onCommand);
+    return () => window.removeEventListener('patients:command', onCommand);
+  }, [runPatientsCommand]);
 
   // Mini chart: số bệnh nhân mới từng tháng (hiển thị 6 tháng gần nhất, kể cả tháng không có bệnh nhân)
   const patientGrowthData = useMemo(() => {
@@ -221,59 +372,59 @@ export default function Patients() {
         <main className="patients-content">
           <h2>Patients</h2>
           {/* Top section: stats/pie chart and patient growth chart side by side, then new patients box below */}
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:0,marginBottom:24}}>
-            <div style={{display:'flex',flexDirection:'row',gap:16,alignItems:'stretch',justifyContent:'center',width:'100%',marginBottom:8}}>
-              <div style={{background:'rgba(245,250,255,0.8)',borderRadius:20,padding:'22px 38px',boxShadow:'0 2px 8px #e0e7ef',display:'flex',gap:32,alignItems:'center',minWidth:420,width:'48%',height:260}}>
-                <div style={{fontWeight:700,fontSize:20,color:'#1976d2',textAlign:'center'}}>Total<br/><span style={{fontSize:28,color:'#1976d2'}}>{stats.total}</span></div>
-                <div style={{fontWeight:700,fontSize:20,color:'#4db6ac',textAlign:'center'}}>Chronic<br/><span style={{fontSize:28,color:'#4db6ac'}}>{stats.chronic}</span></div>
-                <div style={{fontWeight:700,fontSize:20,color:'#ffb74d',textAlign:'center'}}>New<br/><span style={{fontSize:28,color:'#ffb74d'}}>{stats.newThisMonth}</span></div>
-                <div style={{width:140,height:140,position:'relative'}}>
+          <div className="patients-dashboard-stack">
+            <div className="patients-dashboard-row">
+              <div className="patients-stats-card">
+                <div className="patients-stat-item patients-stat-total">Total<br/><span className="patients-stat-number">{stats.total}</span></div>
+                <div className="patients-stat-item patients-stat-chronic">Chronic<br/><span className="patients-stat-number">{stats.chronic}</span></div>
+                <div className="patients-stat-item patients-stat-new">New<br/><span className="patients-stat-number">{stats.newThisMonth}</span></div>
+                <div className="patients-pie-wrap">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart style={{filter:'drop-shadow(0 2px 8px #e0e7ef)'}}>
+                    <PieChart className="patients-pie-chart">
                       <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={55} paddingAngle={2} >
                         {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={pieColors[idx]} />)}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={pieTooltipFormatter} />
                     </PieChart>
                   </ResponsiveContainer>
                   {/* Legend dưới pie chart */}
-                  <div style={{position:'absolute',bottom:-18,left:'50%',transform:'translateX(-50%)',display:'flex',gap:10,fontSize:12}}>
-                    <span style={{color:'#4db6ac'}}>&#9679; Chronic</span>
-                    <span style={{color:'#ffb74d'}}>&#9679; New</span>
-                    <span style={{color:'#64b5f6'}}>&#9679; Other</span>
+                  <div className="patients-pie-legend">
+                    <span className="patients-pie-legend-chronic">&#9679; Chronic</span>
+                    <span className="patients-pie-legend-new">&#9679; New</span>
+                    <span className="patients-pie-legend-other">&#9679; Other</span>
                   </div>
                 </div>
               </div>
               {/* Patient Growth by Month chart to the right, same height */}
-              <div style={{background:'#fff',borderRadius:18,padding:'22px 38px',boxShadow:'0 2px 8px #e0e7ef',minWidth:420,width:'48%',height:260,display:'flex',flexDirection:'column',justifyContent:'center'}}>
-                <div style={{fontWeight:700,fontSize:18,color:'#1976d2',marginBottom:8,textAlign:'center'}}>Patient Growth by Month</div>
+              <div className="patients-growth-card" ref={growthRef}>
+                <div className="patients-growth-title">Patient Growth by Month</div>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={patientGrowthData} margin={{top:8,right:16,left:0,bottom:8}}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" tick={{fontSize:13}} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.35)" />
+                    <XAxis dataKey="month" tick={{fontSize:13}} tickFormatter={formatMonthLabel} />
                     <YAxis allowDecimals={false} tick={{fontSize:13}} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#1976d2" radius={[8,8,0,0]} />
+                    <Tooltip formatter={growthTooltipFormatter} labelFormatter={formatMonthLabel} />
+                    <Bar dataKey="count" fill="var(--brand-500)" radius={[8,8,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
             {/* New Patients This Month box - prominent, colored, with icon */}
-            <div style={{background:'#fff',borderRadius:18,padding:'16px 40px',boxShadow:'0 4px 16px #b3c6ff',fontWeight:800,fontSize:26,color:'#1976d2',textAlign:'center',letterSpacing:1,minWidth:280,margin:'18px 0 0 0',display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
-              <span style={{fontSize:20,color:'#1976d2',fontWeight:700,marginBottom:2,display:'flex',alignItems:'center',gap:8}}>
-                <span role="img" aria-label="new-patient" style={{fontSize:26}}>👤</span>
+            <div className="patients-new-card">
+              <span className="patients-new-title">
+                <span role="img" aria-label="new-patient" className="patients-new-icon">👤</span>
                 New Patients This Month
               </span>
-              <span style={{fontSize:40,color:'#4db6ac',fontWeight:900,lineHeight:1,background:'#f5fafd',borderRadius:10,padding:'2px 18px',marginTop:6,boxShadow:'0 2px 8px #e0e7ef'}}>{stats.newThisMonth}</span>
+              <span className="patients-new-value">{stats.newThisMonth}</span>
             </div>
           </div>
-          <div className="patients-search-row" style={{display:'flex',gap:12,alignItems:'center',marginBottom:16,flexWrap:'wrap'}}>
+          <div className="patients-search-row">
             {/* Filter summary/info block to fill whitespace */}
-            <div style={{minWidth:170,maxWidth:210,background:'linear-gradient(90deg,#e3efff 70%,#fff 100%)',borderRadius:14,padding:'10px 18px',fontWeight:600,color:'#1976d2',boxShadow:'0 2px 8px #e0e7ef',marginRight:10,display:'flex',flexDirection:'row',alignItems:'center',gap:10}}>
-              <span role="img" aria-label="filter" style={{fontSize:20,marginRight:4}}>🔎</span>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start',justifyContent:'center'}}>
-                <div style={{fontSize:15,marginBottom:2,fontWeight:700}}>Filters</div>
-                <div style={{fontSize:13,fontWeight:400,minHeight:18}}>
+            <div className="patients-filter-summary">
+              <span role="img" aria-label="filter" className="patients-filter-icon">🔎</span>
+              <div className="patients-filter-content">
+                <div className="patients-filter-title">Filters</div>
+                <div className="patients-filter-values">
                   {search && <span>Name: <b>{search}</b> </span>}
                   {emailFilter && <span>Email: <b>{emailFilter}</b> </span>}
                   {phoneFilter && <span>Phone: <b>{phoneFilter}</b> </span>}
@@ -282,37 +433,95 @@ export default function Patients() {
                   {visitCountFilter && <span>Visits ≥ <b>{visitCountFilter}</b> </span>}
                   {doctorFilter && <span>Doctor: <b>{doctorFilter}</b> </span>}
                   {chronicFilter && <span>Chronic only </span>}
-                  {(!search && !doctorFilter && !chronicFilter && !emailFilter && !phoneFilter && !idFilter && !lastVisitFilter && !visitCountFilter) && <span style={{color:'#888'}}>No filters applied, showing all patients.</span>}
+                  {(!search && !doctorFilter && !chronicFilter && !emailFilter && !phoneFilter && !idFilter && !lastVisitFilter && !visitCountFilter) && <span className="patients-filter-none">No filters applied, showing all patients.</span>}
                 </div>
               </div>
             </div>
             {/* ...existing code... */}
-            <input type="text" placeholder="Name..." value={search} onChange={e => setSearch(e.target.value)} className="patients-search-input" style={{minWidth:120}} />
-            <input type="text" placeholder="Email..." value={emailFilter} onChange={e => setEmailFilter(e.target.value)} className="patients-search-input" style={{minWidth:120}} />
-            <input type="text" placeholder="Phone..." value={phoneFilter} onChange={e => setPhoneFilter(e.target.value)} className="patients-search-input" style={{minWidth:100}} />
-            <input type="text" placeholder="ID..." value={idFilter} onChange={e => setIdFilter(e.target.value)} className="patients-search-input" style={{minWidth:60}} />
-            <input type="date" placeholder="Last Visit..." value={lastVisitFilter} onChange={e => setLastVisitFilter(e.target.value)} className="patients-search-input" style={{minWidth:120}} />
-            <input type="number" min="1" placeholder="Visits ≥..." value={visitCountFilter} onChange={e => setVisitCountFilter(e.target.value)} className="patients-search-input" style={{minWidth:80}} />
-            <select value={doctorFilter} onChange={e => setDoctorFilter(e.target.value)} className="patients-search-input" style={{minWidth:120}}>
+            <input ref={searchInputRef} type="text" placeholder="Name..." value={search} onChange={e => setSearch(e.target.value)} className="patients-search-input patients-input-md" />
+            <input type="text" placeholder="Email..." value={emailFilter} onChange={e => setEmailFilter(e.target.value)} className="patients-search-input patients-input-md" />
+            <input type="text" placeholder="Phone..." value={phoneFilter} onChange={e => setPhoneFilter(e.target.value)} className="patients-search-input patients-input-sm" />
+            <input type="text" placeholder="ID..." value={idFilter} onChange={e => setIdFilter(e.target.value)} className="patients-search-input patients-input-xs" />
+            <input type="date" placeholder="Last Visit..." value={lastVisitFilter} onChange={e => setLastVisitFilter(e.target.value)} className="patients-search-input patients-input-md" />
+            <input type="number" min="1" placeholder="Visits ≥..." value={visitCountFilter} onChange={e => setVisitCountFilter(e.target.value)} className="patients-search-input patients-input-count" />
+            <select value={doctorFilter} onChange={e => setDoctorFilter(e.target.value)} className="patients-search-input patients-input-md">
               <option value="">All Doctors</option>
               {doctorList.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
-            <label style={{marginLeft:8,display:'flex',alignItems:'center',gap:4,fontSize:15}}>
+            <label className="patients-toggle">
               <input type="checkbox" checked={chronicFilter} onChange={e => setChronicFilter(e.target.checked)} /> Chronic only
             </label>
-            <button style={{marginLeft:8,background:'#1976d2',color:'#fff',border:'none',borderRadius:8,padding:'10px 22px',fontWeight:700,fontSize:16,boxShadow:'0 2px 8px #e0e7ef',cursor:'pointer',display:'flex',alignItems:'center',gap:8}} onClick={handleAdd}><EditIcon /> Add Patient</button>
+            <button className="patients-add-btn" onClick={handleAdd}><EditIcon /> Add Patient</button>
           </div>
-          <div className="patients-table-wrapper" style={{background:'#fff',borderRadius:10,boxShadow:'0 2px 8px #e0e7ef',padding:'0 0 12px 0',marginBottom:24,overflowX:'auto'}}>
-            <table className="patients-table" style={{width:'100%',borderCollapse:'collapse',minWidth:800}}>
-              <thead style={{background:'#e3efff'}}>
+
+          <section className="patients-risk-section" ref={riskRef}>
+            <h3>Precision Patient Risk Cohorts</h3>
+            <div className="patients-risk-grid">
+              <article>
+                <span>High Risk</span>
+                <b>{riskCohorts.high.count}</b>
+                <small>Avg score: {riskCohorts.high.avg}</small>
+              </article>
+              <article>
+                <span>Medium Risk</span>
+                <b>{riskCohorts.medium.count}</b>
+                <small>Avg score: {riskCohorts.medium.avg}</small>
+              </article>
+              <article>
+                <span>Low Risk</span>
+                <b>{riskCohorts.low.count}</b>
+                <small>Avg score: {riskCohorts.low.avg}</small>
+              </article>
+            </div>
+          </section>
+
+          <section className="patients-risk-section" ref={outreachRef}>
+            <h3>Proactive Outreach Queue</h3>
+            <div className="patients-table-wrapper">
+              <table className="patients-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Patient</th>
+                    <th>Risk Score</th>
+                    <th>Band</th>
+                    <th>Last Visit</th>
+                    <th>ETA</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {outreachQueue.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>No medium/high-risk patients in current filter scope.</td>
+                    </tr>
+                  ) : outreachQueue.map((row) => (
+                    <tr key={`outreach-${row.id}`}>
+                      <td>{row.queueRank}</td>
+                      <td>{row.name}</td>
+                      <td>{row.riskScore}</td>
+                      <td><span className={`patient-badge ${row.riskBand === 'high' ? 'patient-badge-elderly' : 'patient-badge-chronic'}`}>{row.riskBand}</span></td>
+                      <td>{row.lastVisit}</td>
+                      <td>{row.etaHours}h</td>
+                      <td>{row.outreachPriority}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div className="patients-table-wrapper" ref={tableRef}>
+            <table className="patients-table">
+              <thead>
                 <tr>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>ID</th>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>Name</th>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>Email</th>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>Phone</th>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>Visits</th>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>Last Visit</th>
-                  <th style={{padding:10,fontWeight:700,color:'#1976d2'}}>Actions</th>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Visits</th>
+                  <th>Last Visit</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -321,27 +530,27 @@ export default function Patients() {
                   const lastVisit = history.length ? history[history.length - 1].date : '-';
                   // Badge logic
                   let badge = null;
-                  if (p.warning && p.warning.toLowerCase().includes('chronic')) badge = <span style={{background:'#fbc02d',color:'#fff',borderRadius:8,padding:'2px 8px',fontSize:12,fontWeight:700,marginLeft:6}}>Chronic</span>;
+                  if (p.warning && p.warning.toLowerCase().includes('chronic')) badge = <span className="patient-badge patient-badge-chronic">Chronic</span>;
                   else if (p.dob) {
                     const age = Math.floor((new Date().getTime() - new Date(p.dob).getTime())/3.15576e10);
-                    if (age < 16) badge = <span style={{background:'#1976d2',color:'#fff',borderRadius:8,padding:'2px 8px',fontSize:12,fontWeight:700,marginLeft:6}}>Child</span>;
-                    else if (age > 65) badge = <span style={{background:'#d32f2f',color:'#fff',borderRadius:8,padding:'2px 8px',fontSize:12,fontWeight:700,marginLeft:6}}>Elderly</span>;
+                    if (age < 16) badge = <span className="patient-badge patient-badge-child">Child</span>;
+                    else if (age > 65) badge = <span className="patient-badge patient-badge-elderly">Elderly</span>;
                   }
                   return (
-                    <tr key={p.id} style={{background:'#fff',borderBottom:'1px solid #e0e7ef'}}>
-                      <td style={{padding:10}}>{p.id}</td>
-                      <td style={{padding:10,cursor:'pointer',color:'#1976d2',fontWeight:600}} onClick={() => handleView(p)}>{p.name} {badge}</td>
-                      <td style={{padding:10}}>{p.email}</td>
-                      <td style={{padding:10}}>{p.phone}</td>
-                      <td style={{padding:10}}>{history.length}</td>
-                      <td style={{padding:10}}>{lastVisit}</td>
-                      <td style={{padding:10,display:'flex',gap:6}}>
-                        <button title="View Record" style={{background:'#1976d2',color:'#fff',border:'none',borderRadius:4,padding:'6px 10px',fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}} onClick={() => handleView(p)}><DetailsIcon />View</button>
+                    <tr key={p.id} className="patients-row">
+                      <td>{p.id}</td>
+                      <td className="patients-name-cell" onClick={() => handleView(p)}>{p.name} {badge}</td>
+                      <td>{p.email}</td>
+                      <td>{p.phone}</td>
+                      <td>{history.length}</td>
+                      <td>{lastVisit}</td>
+                      <td className="patients-actions-cell">
+                        <button title="View Record" className="patients-btn patients-btn-view" onClick={() => handleView(p)}><DetailsIcon />View</button>
                         {history.length > 0 && (
-                          <button title="Download PDF" style={{background:'#fff',color:'#1976d2',border:'1.5px solid #1976d2',borderRadius:4,padding:'6px 10px',fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}} onClick={() => handleDownload(p)}><EditIcon />PDF</button>
+                          <button title="Download PDF" className="patients-btn patients-btn-outline" onClick={() => handleDownload(p)}><EditIcon />PDF</button>
                         )}
-                        <button title="Edit" style={{background:'#fff',color:'#1976d2',border:'1.5px solid #1976d2',borderRadius:4,padding:'6px 10px',fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}} onClick={() => handleEdit(p)}><EditIcon />Edit</button>
-                        <button title="Delete" style={{background:'#fff',color:'#d32f2f',border:'1.5px solid #d32f2f',borderRadius:4,padding:'6px 10px',fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}} onClick={() => handleDelete(p)}><DeleteIcon />Delete</button>
+                        <button title="Edit" className="patients-btn patients-btn-outline" onClick={() => handleEdit(p)}><EditIcon />Edit</button>
+                        <button title="Delete" className="patients-btn patients-btn-danger" onClick={() => handleDelete(p)}><DeleteIcon />Delete</button>
                       </td>
                     </tr>
                   );

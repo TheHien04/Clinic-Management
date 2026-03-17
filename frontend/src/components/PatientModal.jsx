@@ -31,7 +31,7 @@ export default function PatientModal({ open, onClose, patient, history, onBook, 
         <div className="patient-modal-actions">
           <button onClick={onBook}>Book Re-exam</button>
           <button onClick={onEdit}>Edit</button>
-          <button onClick={onDelete} style={{color:'#d32f2f'}}>Delete</button>
+          <button onClick={onDelete} style={{color:'var(--danger-fg)'}}>Delete</button>
         </div>
       </div>
     </div>

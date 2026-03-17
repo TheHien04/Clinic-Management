@@ -1,16 +1,15 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Navigate } from 'react-router-dom';
-import { STORAGE_KEYS, ROUTES } from '../constants';
+import { ROUTES } from '../constants';
+import { hasValidSession } from '../utils/authSession';
 
 /**
  * ProtectedRoute - Wrapper component for routes that require authentication
  * Redirects to login if user is not authenticated
  */
 const ProtectedRoute = ({ children }) => {
-  const user = localStorage.getItem(STORAGE_KEYS.USER);
-  
-  if (!user) {
+  if (!hasValidSession()) {
     // Redirect to login if not authenticated
     return <Navigate to={`/${ROUTES.LOGIN}`} replace />;
   }

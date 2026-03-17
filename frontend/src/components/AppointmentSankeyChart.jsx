@@ -20,7 +20,7 @@ function AppointmentSankeyChart({ appointments }) {
   ];
   return (
     <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px #e0e7ef', padding: 18, minWidth: 320 }}>
-      <div style={{ fontWeight: 600, marginBottom: 10, color: '#1976d2', fontSize: '1.08rem' }}>Appointment Status Flow (Sankey)</div>
+      <div style={{ fontWeight: 600, marginBottom: 10, color: 'var(--brand-500)', fontSize: '1.08rem' }}>Appointment Status Flow (Sankey)</div>
       <ResponsiveContainer width="100%" height={220}>
         <Sankey
           data={{ nodes, links }}

@@ -1,5 +1,186 @@
 /* Medical Records Page Styles */
 
+.mr-kpi-grid {
+  width: 100%;
+  max-width: 1400px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.mr-alert-gap {
+  margin-bottom: 20px;
+}
+
+.mr-search-field {
+  flex: 1;
+  max-width: 400px;
+}
+
+.mr-table-gap {
+  margin-bottom: 24px;
+}
+
+.mr-empty-cell {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.mr-dx-chip {
+  font-family: monospace;
+  background: var(--brand-100);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.mr-action-btn-primary {
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.mr-action-btn-success {
+  background: var(--success-fg);
+  color: #fff;
+}
+
+.mr-action-btn-danger {
+  background: var(--danger-fg);
+  color: #fff;
+}
+
+.mr-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.mr-pagination-page {
+  padding: 10px 20px;
+  background: var(--brand-100);
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.mr-pagination-btn-faded {
+  opacity: 0.5;
+}
+
+.mr-modal-actions-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.mr-form-modal {
+  max-width: 600px;
+}
+
+.mr-form-title {
+  margin-top: 0;
+  color: var(--brand-500);
+}
+
+.mr-modal-actions-spaced {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.mr-chart-row {
+  width: 100%;
+  max-width: 1400px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.mr-chart-card {
+  background: #fff;
+  border: 1px solid #d8e8f7;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(20, 90, 130, 0.08);
+  min-height: 305px;
+}
+
+.mr-chart-card h3 {
+  margin: 4px 0 10px;
+  color: var(--brand-600);
+  font-size: 16px;
+}
+
+@media (max-width: 900px) {
+  .mr-chart-card {
+    min-height: 280px;
+  }
+}
+
+.mr-kpi-card {
+  background: linear-gradient(165deg, #ffffff 25%, #f5fbff 100%);
+  border: 1px solid #d5e8f9;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(20, 90, 130, 0.08);
+}
+
+.mr-kpi-label {
+  color: #476273;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.mr-kpi-value {
+  font-size: 27px;
+  font-weight: 800;
+  color: #0a5f9d;
+}
+
+.mr-kpi-danger {
+  color: var(--danger-fg);
+}
+
+.mr-kpi-warning {
+  color: var(--warning-fg);
+}
+
+.risk-badge,
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.risk-high {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.risk-medium {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.risk-low {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.status-badge {
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -22,6 +203,112 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.medical-detail-modal {
+  width: min(1100px, 95vw);
+}
+
+.medical-detail-title {
+  margin: 0 0 14px;
+  color: #0a5f9d;
+}
+
+.medical-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.medical-card {
+  border: 1px solid #dbeaf8;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fafcff;
+}
+
+.medical-card h3 {
+  margin: 0 0 8px;
+  color: #0c5f9c;
+  font-size: 15px;
+}
+
+.medical-card p {
+  margin: 6px 0;
+  color: #29475a;
+}
+
+.medical-card-full {
+  grid-column: 1 / -1;
+}
+
+.dx-code {
+  font-family: monospace;
+  background: var(--brand-100);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+.insight-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.insight-list li {
+  margin-bottom: 7px;
+  color: #355b73;
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+  border-left: 3px solid #90caf9;
+  padding-left: 10px;
+}
+
+.timeline-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-500);
+}
+
+.timeline-content {
+  color: #2e4e65;
+  font-size: 14px;
+}
+
+@media print {
+  .sidebar,
+  .header,
+  .filter-row,
+  .table-wrapper,
+  .mr-kpi-grid,
+  .mr-chart-row,
+  .pagination,
+  .no-print {
+    display: none !important;
+  }
+
+  .modal-overlay {
+    position: static;
+    background: #fff;
+    padding: 0;
+  }
+
+  .medical-detail-modal {
+    width: 100%;
+    max-width: 100%;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+  }
 }
 
 .form-group {
@@ -49,8 +336,8 @@
 }
 
 .form-input:focus {
-  outline: none;
-  border-color: #1976d2;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(10, 126, 164, 0.18);
 }
 
 .form-input::placeholder {
@@ -89,6 +376,15 @@ textarea.form-input {
   .modal-content {
     padding: 20px;
     max-width: 95%;
+  }
+
+  .medical-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-item {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .filter-row {

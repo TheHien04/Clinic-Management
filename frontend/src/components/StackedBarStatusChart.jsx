@@ -5,10 +5,10 @@ function StackedBarStatusChart({ appointments }) {
   // Gom nhóm theo ngày và trạng thái
   const statusList = ['confirmed', 'pending', 'completed', 'cancelled', 'checked-in'];
   const colorMap = {
-    confirmed: '#1976d2',
-    pending: '#fbc02d',
-    completed: '#43a047',
-    cancelled: '#d32f2f',
+    confirmed: 'var(--brand-500)',
+    pending: 'var(--warning-fg)',
+    completed: 'var(--success-fg)',
+    cancelled: 'var(--danger-fg)',
     'checked-in': '#0288d1',
   };
   const dateMap = {};

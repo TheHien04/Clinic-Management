@@ -1,20 +1,21 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { formatTimeShort } from './utils/i18nFormat'
 
 // Simple test component
-function TestApp() {
+export function TestApp() {
   return (
     <div style={{
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#1a1a2e',
+      background: 'radial-gradient(circle at top right, #d4effa 0%, #eef8fc 38%, #f8fcfe 100%)',
       color: 'white',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: 'IBM Plex Sans, Manrope, sans-serif'
     }}>
       <div style={{
-        background: '#16213e',
+        background: 'linear-gradient(160deg, var(--brand-700), var(--brand-500))',
         padding: '40px',
         borderRadius: '12px',
         textAlign: 'center'
@@ -24,7 +25,7 @@ function TestApp() {
           If you see this, React is rendering correctly.
         </p>
         <p style={{ marginTop: '20px', fontSize: '0.9rem', opacity: 0.6 }}>
-          Port: 5173 | Time: {new Date().toLocaleTimeString()}
+          Port: 5173 | Time: {formatTimeShort(new Date())}
         </p>
       </div>
     </div>

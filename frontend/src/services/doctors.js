@@ -18,6 +18,31 @@ export const getDoctorsAPI = async (filters = {}) => {
 };
 
 /**
+ * Get doctors intelligence payload for capacity and rebalance board.
+ * Returns null for auth failures so UI can fallback to local calculations.
+ */
+export const getDoctorsIntelligenceAPI = async () => {
+  try {
+    const response = await apiClient.get(API_ENDPOINTS.DOCTORS_INTELLIGENCE);
+    return response.data;
+  } catch (error) {
+    const status = error?.response?.status ?? error?.status;
+    if (status === 401 || status === 403) {
+      return null;
+    }
+    throw error;
+  }
+};
+
+/**
+ * Apply doctors rebalance plan and persist reassignment in backend.
+ */
+export const applyDoctorsRebalanceAPI = async (payload = {}) => {
+  const response = await apiClient.post(API_ENDPOINTS.DOCTORS_REBALANCE_APPLY, payload);
+  return response.data;
+};
+
+/**
  * Get doctor by ID
  * @param {number} id - Doctor ID
  * @returns {Promise<Object>} Doctor data
@@ -73,6 +98,8 @@ export const deleteDoctorAPI = async (id) => {
 
 export default {
   getDoctorsAPI,
+  getDoctorsIntelligenceAPI,
+  applyDoctorsRebalanceAPI,
   getDoctorByIdAPI,
   getDoctorScheduleAPI,
   createDoctorAPI,

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DetailsIcon, EditIcon, DeleteIcon } from '../components/icons';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
-import './Appointments.css';
 import './Common.css';
+import './Appointments.css';
 import Spinner from '../components/Spinner';
 import { Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import StackedBarStatusChart from '../components/StackedBarStatusChart';
 import AppointmentCalendarChart from '../components/AppointmentCalendarChart';
 import AppointmentSankeyChart from '../components/AppointmentSankeyChart';
 import DonutChart from '../components/DonutChart';
+import { ROUTES } from '../constants';
 
 
 const initialAppointments = [
@@ -25,12 +27,21 @@ const initialAppointments = [
 import Toast from '../components/Toast';
 
 export default function Appointments() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState(initialAppointments);
   const [filter, setFilter] = useState({ doctor: '', status: '', date: '', search: '' });
   const [showNewModal, setShowNewModal] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [loading, setLoading] = useState(false);
+  const [commandInput, setCommandInput] = useState('');
+  const [denseTable, setDenseTable] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 900);
+  const [mobileActionsRowId, setMobileActionsRowId] = useState(null);
+  const searchInputRef = useRef(null);
+  const tableRef = useRef(null);
+  const calendarRef = useRef(null);
+  const smartQueueRef = useRef(null);
 
   // Quick search & advanced filter
   const filteredAppointments = appointments.filter(item => {
@@ -67,7 +78,7 @@ export default function Appointments() {
   const handleConfirm = (id) => {
     setLoading(true);
     setTimeout(() => {
-      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: 'Confirmed' } : a));
+      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: 'confirmed' } : a));
       setToast({ message: 'Appointment confirmed! Notification sent to patient.', type: 'success' });
       setLoading(false);
     }, 800);
@@ -75,6 +86,20 @@ export default function Appointments() {
 
   // Handler: add new appointment (giả lập)
   const handleAddNew = (newApp) => {
+    const hasConflict = appointments.some((item) => item.doctor === newApp.doctor && item.date === newApp.date && item.time === newApp.time);
+    if (hasConflict) {
+      const suggestion = suggestNextSlot(appointments, newApp.doctor, newApp.date);
+      if (suggestion) {
+        setToast({
+          message: `Conflict detected for ${newApp.doctor} at ${newApp.time}. Suggested slot: ${suggestion.date} ${suggestion.time}.`,
+          type: 'warning',
+        });
+      } else {
+        setToast({ message: 'Conflict detected and no slot available in next 2 weeks.', type: 'error' });
+      }
+      return;
+    }
+
     setLoading(true);
     setTimeout(() => {
       setAppointments(prev => [...prev, { ...newApp, id: prev.length + 1 }]);
@@ -88,23 +113,103 @@ export default function Appointments() {
   const doctorList = Array.from(new Set(appointments.map(a => a.doctor)));
   const statusList = Array.from(new Set(appointments.map(a => a.status)));
 
+  const patientStatusSummary = useMemo(() => {
+    const map = {};
+    appointments.forEach((item) => {
+      if (!map[item.patient]) {
+        map[item.patient] = { total: 0, cancelled: 0, completed: 0, pending: 0 };
+      }
+      map[item.patient].total += 1;
+      if (item.status === 'cancelled') map[item.patient].cancelled += 1;
+      if (item.status === 'completed') map[item.patient].completed += 1;
+      if (item.status === 'pending') map[item.patient].pending += 1;
+    });
+    return map;
+  }, [appointments]);
+
+  const smartQueueRecommendations = useMemo(() => {
+    const candidates = appointments
+      .filter((item) => item.status === 'pending' || item.status === 'cancelled')
+      .map((item) => {
+        const patientSummary = patientStatusSummary[item.patient] || { total: 1, cancelled: 0, completed: 0, pending: 0 };
+        const cancelRate = Math.round((patientSummary.cancelled / Math.max(patientSummary.total, 1)) * 100);
+        const doctorLoad = appointments.filter((row) => row.doctor === item.doctor && row.date === item.date).length;
+        const priorityScore = Math.min(100, 35 + cancelRate * 0.5 + doctorLoad * 8 + (item.status === 'cancelled' ? 18 : 5));
+        const recommendedSlot = suggestNextSlot(
+          appointments,
+          item.doctor,
+          item.status === 'cancelled' ? addDaysIso(item.date, 1) : item.date
+        );
+
+        return {
+          id: item.id,
+          patient: item.patient,
+          doctor: item.doctor,
+          currentStatus: item.status,
+          currentSlot: `${item.date} ${item.time}`,
+          priorityScore: Math.round(priorityScore),
+          recommendedSlot,
+          queueAction: item.status === 'cancelled' ? 'Auto-rebook recommended' : 'Fast-track confirmation',
+        };
+      })
+      .sort((a, b) => b.priorityScore - a.priorityScore);
+
+    return candidates.slice(0, 8);
+  }, [appointments, patientStatusSummary]);
+
+  const handleAutoRebookCancelled = useCallback(() => {
+    let updatedCount = 0;
+
+    setAppointments((prev) => prev.map((item) => {
+      if (item.status !== 'cancelled') return item;
+      const suggestion = suggestNextSlot(prev, item.doctor, addDaysIso(item.date, 1));
+      if (!suggestion) return item;
+      updatedCount += 1;
+      return {
+        ...item,
+        date: suggestion.date,
+        time: suggestion.time,
+        status: 'pending',
+        checkedIn: false,
+      };
+    }));
+
+    if (updatedCount > 0) {
+      setToast({ message: `Auto-rebooked ${updatedCount} cancelled appointment(s) into new pending slots.`, type: 'success' });
+    } else {
+      setToast({ message: 'No cancelled appointments eligible for auto-rebook.', type: 'warning' });
+    }
+  }, []);
+
   // Badge trạng thái
   const statusBadge = (status) => {
-    let color = '#bdbdbd', bg = '#f5f5f5', icon = '';
-    if (status === 'pending') { color = '#fbc02d'; bg = '#fffde7'; icon = '⏳'; }
-    if (status === 'confirmed') { color = '#1976d2'; bg = '#e3f2fd'; icon = '✔️'; }
-    if (status === 'completed') { color = '#43a047'; bg = '#e8f5e9'; icon = '✅'; }
-    if (status === 'cancelled') { color = '#d32f2f'; bg = '#ffebee'; icon = '❌'; }
-    if (status === 'checked-in') { color = '#0288d1'; bg = '#e1f5fe'; icon = '🟢'; }
+    const normalized = String(status || '').toLowerCase();
+    let icon = '';
+    if (normalized === 'pending') icon = '⏳';
+    if (normalized === 'confirmed') icon = '✔️';
+    if (normalized === 'completed') icon = '✅';
+    if (normalized === 'cancelled') icon = '❌';
+    if (normalized === 'checked-in') icon = '🟢';
+
+    const statusClass = [
+      'pending',
+      'confirmed',
+      'completed',
+      'cancelled',
+      'checked-in',
+    ].includes(normalized)
+      ? `ap-status-${normalized}`
+      : 'ap-status-default';
+
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, color, background: bg, borderRadius: 8, padding: '2px 10px', fontSize: 13, border: `1.2px solid ${color}` }}>
+      <span className={`ap-status-chip ${statusClass}`}>
         <span>{icon}</span> {status}
       </span>
     );
   };
 
   // Toast for upcoming appointments (mock: show if any appointment in next 2 hours)
-  React.useEffect(() => {
+  useEffect(() => {
     const now = new Date();
     const soon = appointments.find(a => {
       const dt = new Date(a.date + 'T' + a.time);
@@ -115,6 +220,114 @@ export default function Appointments() {
     }
   }, [appointments]);
 
+  const runAppointmentsCommand = useCallback((action) => {
+    if (!action) return;
+
+    if (action === 'book') {
+      setShowNewModal(true);
+      return;
+    }
+
+    if (action === 'filter-pending') {
+      setFilter((prev) => ({ ...prev, status: 'pending' }));
+      return;
+    }
+
+    if (action === 'filter-today') {
+      const today = new Date().toISOString().slice(0, 10);
+      setFilter((prev) => ({ ...prev, date: today }));
+      return;
+    }
+
+    if (action === 'clear-filters') {
+      setFilter({ doctor: '', status: '', date: '', search: '' });
+      return;
+    }
+
+    if (action === 'focus-search') {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    if (action === 'jump-table') {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'jump-calendar') {
+      calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'jump-smart-queue') {
+      smartQueueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (action === 'auto-rebook-cancelled') {
+      handleAutoRebookCancelled();
+    }
+  }, [handleAutoRebookCancelled]);
+
+  const runTopCommand = useCallback((rawValue) => {
+    const value = String(rawValue || '').trim().toLowerCase();
+    if (!value) return;
+
+    if (value.includes('new') && value.includes('appointment')) {
+      setShowNewModal(true);
+      return;
+    }
+
+    if (value.includes('new') && value.includes('patient')) {
+      navigate(`/${ROUTES.PATIENTS}`);
+      return;
+    }
+
+    if (value.includes('new') && value.includes('doctor')) {
+      navigate(`/${ROUTES.DOCTORS}`);
+      return;
+    }
+
+    if (value.includes('pending')) {
+      setFilter((prev) => ({ ...prev, status: 'pending' }));
+      return;
+    }
+
+    if (value.includes('today')) {
+      const today = new Date().toISOString().slice(0, 10);
+      setFilter((prev) => ({ ...prev, date: today }));
+      return;
+    }
+
+    if (value.includes('calendar')) {
+      calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (value.includes('queue')) {
+      smartQueueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    window.dispatchEvent(new Event('command-palette:open'));
+  }, [navigate]);
+
+  useEffect(() => {
+    const urlAction = new URLSearchParams(window.location.search).get('cp_action');
+    if (urlAction) {
+      runAppointmentsCommand(urlAction);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    const onCommand = (event) => {
+      const action = event?.detail?.action;
+      runAppointmentsCommand(action);
+    };
+
+    window.addEventListener('appointments:command', onCommand);
+    return () => window.removeEventListener('appointments:command', onCommand);
+  }, [runAppointmentsCommand]);
+
   // ...existing code...
   // Biểu đồ tỷ lệ trạng thái (Pie chart)
   const pieData = (() => {
@@ -124,7 +337,7 @@ export default function Appointments() {
     });
     return Object.entries(map).map(([status, value]) => ({ status, value }));
   })();
-  const pieColors = ['#1976d2', '#fbc02d', '#43a047', '#d32f2f', '#0288d1'];
+  const pieColors = ['var(--brand-500)', 'var(--warning-fg)', 'var(--success-fg)', 'var(--danger-fg)', '#0288d1'];
 
   // Lịch hẹn trong 2 giờ tới
   const now = new Date();
@@ -141,6 +354,75 @@ export default function Appointments() {
   if (filter.doctor) filterSummary.push(`Doctor: ${filter.doctor}`);
   if (filter.status) filterSummary.push(`Status: ${filter.status}`);
 
+  const renderRowActions = (item) => {
+    const confirmAction = item.status === 'pending' ? (
+      <button className="action-btn ap-btn-outline" title="Confirm" onClick={() => handleConfirm(item.id)}>
+        <EditIcon />Confirm
+      </button>
+    ) : null;
+
+    const checkinAction = item.status === 'confirmed' && !item.checkedIn ? (
+      <button className="action-btn ap-btn-success" title="Check-in" onClick={() => handleCheckIn(item.id)}>
+        <DeleteIcon />Check-in
+      </button>
+    ) : null;
+
+    if (!isMobileViewport) {
+      return (
+        <div className="ap-actions-group ap-actions-inline">
+          <button className="action-btn ap-btn-solid" title="Details" onClick={() => handleShowDetail(item)}>
+            <DetailsIcon />Details
+          </button>
+          {confirmAction}
+          {checkinAction}
+        </div>
+      );
+    }
+
+    const isOpen = mobileActionsRowId === item.id;
+    return (
+      <div className="ap-actions-dropdown">
+        <button
+          type="button"
+          className="ap-actions-trigger"
+          onClick={() => setMobileActionsRowId((prev) => (prev === item.id ? null : item.id))}
+        >
+          Actions {isOpen ? '\u25B2' : '\u25BC'}
+        </button>
+        {isOpen && (
+          <div className="ap-actions-menu">
+            <button className="action-btn ap-btn-solid" title="Details" onClick={() => { setMobileActionsRowId(null); handleShowDetail(item); }}>
+              <DetailsIcon />Details
+            </button>
+            {item.status === 'pending' && (
+              <button className="action-btn ap-btn-outline" title="Confirm" onClick={() => { setMobileActionsRowId(null); handleConfirm(item.id); }}>
+                <EditIcon />Confirm
+              </button>
+            )}
+            {item.status === 'confirmed' && !item.checkedIn && (
+              <button className="action-btn ap-btn-success" title="Check-in" onClick={() => { setMobileActionsRowId(null); handleCheckIn(item.id); }}>
+                <DeleteIcon />Check-in
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    const onResize = () => {
+      const mobile = window.innerWidth <= 900;
+      setIsMobileViewport(mobile);
+      if (!mobile) {
+        setMobileActionsRowId(null);
+      }
+    };
+
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   if (loading) return <Spinner />;
 
   return (
@@ -151,26 +433,63 @@ export default function Appointments() {
         <main className="page-content">
           <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
           <h2 className="page-title">Appointments</h2>
+
+          <section className="ap-command-bar ap-stagger ap-delay-1" aria-label="Global command bar for appointments">
+            <div className="ap-command-bar-left">
+              <p className="ap-command-label">Workspace Command Bar</p>
+              <div className="ap-command-input-wrap">
+                <input
+                  type="text"
+                  className="ap-command-input"
+                  value={commandInput}
+                  onChange={(event) => setCommandInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      runTopCommand(commandInput);
+                      setCommandInput('');
+                    }
+                  }}
+                  placeholder="Try: new appointment, new patient, pending today, open calendar"
+                />
+                <button
+                  type="button"
+                  className="ap-command-run"
+                  onClick={() => {
+                    runTopCommand(commandInput);
+                    setCommandInput('');
+                  }}
+                >
+                  Run
+                </button>
+              </div>
+            </div>
+            <div className="ap-command-actions">
+              <button type="button" className="ap-command-chip" onClick={() => setShowNewModal(true)}>+ Appointment</button>
+              <button type="button" className="ap-command-chip" onClick={() => navigate(`/${ROUTES.PATIENTS}`)}>+ Patient</button>
+              <button type="button" className="ap-command-chip" onClick={() => navigate(`/${ROUTES.DOCTORS}`)}>+ Doctor</button>
+              <button type="button" className="ap-command-chip" onClick={() => window.dispatchEvent(new Event('command-palette:open'))}>Command Palette</button>
+            </div>
+          </section>
           
           {/* Tóm tắt bộ lọc */}
           {filterSummary.length > 0 && (
-            <div className="alert-box alert-info" style={{marginBottom:10}}>
-              {filterSummary.map((f,i) => <span key={i} style={{marginRight:12}}>{f}</span>)}
+            <div className="alert-box alert-info ap-filter-summary">
+              {filterSummary.map((f,i) => <span key={i} className="ap-filter-pill">{f}</span>)}
             </div>
           )}
           {/* Lịch hẹn trong 2 giờ tới */}
           {upcoming.length > 0 && (
             <div className="alert-box alert-warning">
-              <span style={{fontSize:22}}>⏰</span>
+              <span className="ap-upcoming-icon">⏰</span>
               Upcoming appointments in next 2 hours:
               {upcoming.map((a,i) => (
-                <span key={i} style={{marginLeft:18}}>{a.patient} ({a.doctor}) at {a.time}</span>
+                <span key={i} className="ap-upcoming-item">{a.patient} ({a.doctor}) at {a.time}</span>
               ))}
             </div>
           )}
           
           {/* Biểu đồ thống kê */}
-          <div className="charts-row">
+          <div className="charts-row ap-stagger ap-delay-2">
             <div className="chart-card">
               <div className="chart-title">Appointments by Status (Stacked Bar)</div>
               <StackedBarStatusChart appointments={appointments} />
@@ -185,11 +504,15 @@ export default function Appointments() {
             </div>
           </div>
           
-          <div className="filter-row">
+          <div className="filter-row ap-stagger ap-delay-3">
             <button onClick={handleOpenNew} className="btn-primary">
               <EditIcon /> Book New Appointment
             </button>
+            <button type="button" className="ap-density-toggle" onClick={() => setDenseTable((prev) => !prev)}>
+              {denseTable ? 'Comfortable Table' : 'Compact Table'}
+            </button>
             <input 
+              ref={searchInputRef}
               type="text" 
               placeholder="Quick search (name, doctor, ID)" 
               value={filter.search} 
@@ -219,13 +542,55 @@ export default function Appointments() {
               {statusList.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
+          <section className="chart-card ap-smart-queue ap-stagger ap-delay-4" ref={smartQueueRef}>
+            <div className="chart-title">Smart Queue Orchestrator</div>
+            <p className="ap-smart-queue-note">
+              Prioritizes pending/cancelled appointments by queue risk and recommends the next available slot for each doctor.
+            </p>
+            <div className="dashboard-action-row">
+              <button onClick={handleAutoRebookCancelled} className="action-button action-primary">Auto-Rebook Cancelled</button>
+            </div>
+            <div className="table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Doctor</th>
+                    <th>Current Slot</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Recommended Slot</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {smartQueueRecommendations.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>No pending or cancelled appointments to optimize.</td>
+                    </tr>
+                  ) : smartQueueRecommendations.map((row) => (
+                    <tr key={`sq-${row.id}`}>
+                      <td>{row.patient}</td>
+                      <td>{row.doctor}</td>
+                      <td>{row.currentSlot}</td>
+                      <td>{statusBadge(row.currentStatus)}</td>
+                      <td>{row.priorityScore}</td>
+                      <td>{row.recommendedSlot ? `${row.recommendedSlot.date} ${row.recommendedSlot.time}` : 'No slot'}</td>
+                      <td>{row.queueAction}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
           
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className={`table-wrapper ap-table-shell ap-stagger ap-delay-5 ${denseTable ? 'is-dense' : ''}`} ref={tableRef}>
+            <table className="data-table ap-main-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Patient</th>
+                  <th className="ap-col-sticky-id">ID</th>
+                  <th className="ap-col-sticky-patient">Patient</th>
                   <th>Doctor</th>
                   <th>Date</th>
                   <th>Time</th>
@@ -236,27 +601,13 @@ export default function Appointments() {
               <tbody>
                 {filteredAppointments.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.id}</td>
-                    <td>{item.patient}</td>
+                    <td className="ap-col-sticky-id">{item.id}</td>
+                    <td className="ap-col-sticky-patient">{item.patient}</td>
                     <td>{item.doctor}</td>
                     <td>{item.date}</td>
                     <td>{item.time}</td>
                     <td>{statusBadge(item.status)}</td>
-                    <td>
-                      <button className="action-btn" title="Details" style={{background:'#1976d2',color:'#fff'}} onClick={() => handleShowDetail(item)}>
-                        <DetailsIcon />Details
-                      </button>
-                      {item.status === 'pending' && (
-                        <button className="action-btn" title="Confirm" style={{border:'1.5px solid #1976d2',color:'#1976d2'}} onClick={() => handleConfirm(item.id)}>
-                          <EditIcon />Confirm
-                        </button>
-                      )}
-                      {item.status === 'confirmed' && !item.checkedIn && (
-                        <button className="action-btn" title="Check-in" style={{background:'#43a047',color:'#fff'}} onClick={() => handleCheckIn(item.id)}>
-                          <DeleteIcon />Check-in
-                        </button>
-                      )}
-                    </td>
+                    <td>{renderRowActions(item)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -264,15 +615,15 @@ export default function Appointments() {
           </div>
           
           {/* Calendar */}
-          <div className="chart-card" style={{width:'100%', maxWidth:1400, marginBottom:32}}>
+          <div className="chart-card ap-calendar-card ap-stagger ap-delay-6" ref={calendarRef}>
             <div className="chart-title">Appointment Calendar</div>
             <AppointmentCalendarChart appointments={appointments} />
           </div>
-          <div className="appointments-features" style={{width:'100%', maxWidth:1400, display:'flex', gap:32, flexWrap:'wrap', marginBottom:32}}>
-            <div className="appointments-feature-block" style={{flex:1, minWidth:300, background:'#fff', border:'1px solid #e3eaf3', borderRadius:10, boxShadow:'0 2px 8px #e0e7ef', padding:24}}>
-              <div className="appointments-feature-title" style={{fontWeight:700, fontSize:16, color:'#1976d2', marginBottom:12}}>Quick Actions</div>
+          <div className="appointments-features ap-features-layout ap-stagger ap-delay-7">
+            <div className="appointments-feature-block ap-feature-card">
+              <div className="appointments-feature-title ap-feature-title-strong">Quick Actions</div>
               <div className="appointments-feature-desc">
-                <ul style={{paddingLeft: 18, margin: 0}}>
+                <ul>
                   <li>Book a new appointment for any patient.</li>
                   <li>View and manage today’s schedule.</li>
                   <li>Filter appointments by doctor or status.</li>
@@ -280,10 +631,10 @@ export default function Appointments() {
                 </ul>
               </div>
             </div>
-            <div className="appointments-feature-block" style={{flex:1, minWidth:300, background:'#fff', border:'1px solid #e3eaf3', borderRadius:10, boxShadow:'0 2px 8px #e0e7ef', padding:24}}>
-              <div className="appointments-feature-title" style={{fontWeight:700, fontSize:16, color:'#1976d2', marginBottom:12}}>Appointment Tips</div>
+            <div className="appointments-feature-block ap-feature-card">
+              <div className="appointments-feature-title ap-feature-title-strong">Appointment Tips</div>
               <div className="appointments-feature-desc">
-                <ul style={{paddingLeft: 18, margin: 0}}>
+                <ul>
                   <li>Click on a row to view appointment details.</li>
                   <li>Use the status color to quickly identify appointment state.</li>
                   <li>Keep patient and doctor info up to date for best results.</li>
@@ -293,25 +644,25 @@ export default function Appointments() {
           </div>
           {/* Modal đặt lịch mới (giả lập) */}
           {showNewModal && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.18)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY:'auto' }}>
-              <div style={{ background: '#fff', borderRadius: 10, padding: 32, minWidth: 320, minHeight: 200, maxHeight:'90vh', overflowY:'auto', boxShadow: '0 2px 16px rgba(25,118,210,0.13)', display:'flex', flexDirection:'column', justifyContent:'center' }}>
-                <h3 style={{ color: '#1976d2', marginBottom: 18 }}>Book New Appointment</h3>
+            <div className="ap-modal-overlay">
+              <div className="ap-modal-card">
+                <h3 className="ap-modal-title">Book New Appointment</h3>
                 <NewAppointmentForm onSubmit={handleAddNew} onCancel={handleCloseNew} doctorList={doctorList} />
               </div>
             </div>
           )}
           {/* Modal xem chi tiết (giả lập) */}
           {showDetail && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.18)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY:'auto' }}>
-              <div style={{ background: '#fff', borderRadius: 10, padding: 32, minWidth: 320, minHeight: 200, maxHeight:'90vh', overflowY:'auto', boxShadow: '0 2px 16px rgba(25,118,210,0.13)', display:'flex', flexDirection:'column', justifyContent:'center' }}>
-                <h3 style={{ color: '#1976d2', marginBottom: 18 }}>Appointment Details</h3>
+            <div className="ap-modal-overlay">
+              <div className="ap-modal-card">
+                <h3 className="ap-modal-title">Appointment Details</h3>
                 <div><b>Patient:</b> {showDetail.patient}</div>
                 <div><b>Doctor:</b> {showDetail.doctor}</div>
                 <div><b>Date:</b> {showDetail.date}</div>
                 <div><b>Time:</b> {showDetail.time}</div>
                 <div><b>Status:</b> {showDetail.status}</div>
-                <div style={{ marginTop: 18 }}>
-                  <button onClick={handleCloseDetail} style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                <div className="ap-modal-footer">
+                  <button onClick={handleCloseDetail} className="ap-close-btn">Close</button>
                 </div>
               </div>
             </div>
@@ -322,36 +673,68 @@ export default function Appointments() {
   );
 }
 
+const addDaysIso = (isoDate, days) => {
+  const base = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(base.getTime())) return isoDate;
+  base.setDate(base.getDate() + days);
+  return base.toISOString().slice(0, 10);
+};
+
+const suggestNextSlot = (appointments, doctor, startDate) => {
+  const slots = [];
+  for (let h = 8; h <= 17; h += 1) {
+    for (const m of [0, 30]) {
+      if (h === 17 && m > 0) continue;
+      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+
+  const start = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+
+  for (let dayOffset = 0; dayOffset < 14; dayOffset += 1) {
+    const date = addDaysIso(startDate, dayOffset);
+    for (const time of slots) {
+      const isTaken = appointments.some((item) => item.doctor === doctor && item.date === date && item.time === time);
+      if (!isTaken) {
+        return { date, time };
+      }
+    }
+  }
+
+  return null;
+};
+
 // Form đặt lịch mới (giả lập)
 function NewAppointmentForm({ onSubmit, onCancel, doctorList }) {
-  const [form, setForm] = useState({ patient: '', doctor: doctorList[0] || '', date: '', time: '', status: 'Pending', email: '', phone: '' });
+  const [form, setForm] = useState({ patient: '', doctor: doctorList[0] || '', date: '', time: '', status: 'pending', email: '', phone: '' });
   return (
     <form onSubmit={e => { e.preventDefault(); onSubmit(form); }}>
-      <div style={{ marginBottom: 12 }}>
-        <input required placeholder="Patient Name" value={form.patient} onChange={e => setForm(f => ({ ...f, patient: e.target.value }))} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #b0bec5' }} />
+      <div className="ap-form-group">
+        <input required placeholder="Patient Name" value={form.patient} onChange={e => setForm(f => ({ ...f, patient: e.target.value }))} className="ap-form-input ap-form-input-full" />
       </div>
-      <div style={{ marginBottom: 12 }}>
-        <select required value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #b0bec5' }}>
+      <div className="ap-form-group">
+        <select required value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))} className="ap-form-select ap-form-select-full">
           {doctorList.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
-      <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-        <input required type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #b0bec5', flex: 1 }} />
-        <input required type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #b0bec5', flex: 1 }} />
+      <div className="ap-form-row">
+        <input required type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="ap-form-input ap-form-flex" />
+        <input required type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="ap-form-input ap-form-flex" />
       </div>
-      <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-        <input required placeholder="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #b0bec5', flex: 1 }} />
-        <input required placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #b0bec5', flex: 1 }} />
+      <div className="ap-form-row">
+        <input required placeholder="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="ap-form-input ap-form-flex" />
+        <input required placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="ap-form-input ap-form-flex" />
       </div>
-      <div style={{ marginBottom: 18 }}>
-        <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #b0bec5' }}>
-          <option value="Pending">Pending</option>
-          <option value="Confirmed">Confirmed</option>
+      <div className="ap-form-group">
+        <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="ap-form-select ap-form-select-full">
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
         </select>
       </div>
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-        <button type="button" onClick={onCancel} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-        <button type="submit" style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 600, cursor: 'pointer' }}>Book</button>
+      <div className="ap-form-actions">
+        <button type="button" onClick={onCancel} className="ap-cancel-btn">Cancel</button>
+        <button type="submit" className="ap-book-btn">Book</button>
       </div>
     </form>
   );

@@ -10,35 +10,43 @@ export const ROUTES = {
   DOCTORS: 'doctors',
   REPORTS: 'reports',
   MEDICAL_RECORDS: 'medical-records',
+  INNOVATION_LAB: 'innovation-lab',
   // Đã xoá các route staff, clinics, specialties, salaries
 };
 
 // API Endpoints (for future backend integration)
 export const API_ENDPOINTS = {
   // Auth
-  LOGIN: '/api/auth/login',
-  REGISTER: '/api/auth/register',
-  LOGOUT: '/api/auth/logout',
-  VERIFY_OTP: '/api/auth/verify-otp',
-  REFRESH_TOKEN: '/api/auth/refresh',
+  LOGIN: '/auth/login',
+  REGISTER: '/auth/register',
+  LOGOUT: '/auth/logout',
+  VERIFY_OTP: '/auth/verify-otp',
+  REFRESH_TOKEN: '/auth/refresh',
   
   // Appointments
-  APPOINTMENTS: '/api/appointments',
-  APPOINTMENT_BY_ID: (id) => `/api/appointments/${id}`,
+  APPOINTMENTS: '/appointments',
+  APPOINTMENT_BY_ID: (id) => `/appointments/${id}`,
   
   // Patients
-  PATIENTS: '/api/patients',
-  PATIENT_BY_ID: (id) => `/api/patients/${id}`,
-  PATIENT_HISTORY: (id) => `/api/patients/${id}/history`,
+  PATIENTS: '/patients',
+  PATIENT_BY_ID: (id) => `/patients/${id}`,
+  PATIENT_HISTORY: (id) => `/patients/${id}/history`,
   
   // Doctors
-  DOCTORS: '/api/doctors',
-  DOCTOR_BY_ID: (id) => `/api/doctors/${id}`,
-  DOCTOR_SCHEDULE: (id) => `/api/doctors/${id}/schedule`,
+  DOCTORS: '/doctors',
+  DOCTORS_INTELLIGENCE: '/doctors/intelligence',
+  DOCTORS_REBALANCE_APPLY: '/doctors/rebalance/apply',
+  DOCTOR_BY_ID: (id) => `/doctors/${id}`,
+  DOCTOR_SCHEDULE: (id) => `/doctors/${id}/schedule`,
   
   // Reports
-  REPORTS: '/api/reports',
-  EXPORT_CSV: '/api/reports/export',
+  REPORTS: '/reports',
+  EXPORT_CSV: '/reports/export',
+
+  // Innovation
+  INNOVATION_SECURITY_POSTURE: '/innovation/security/posture',
+  INNOVATION_AI_TRIAGE: '/innovation/ai/triage',
+  INNOVATION_PREVENTIVE_INSIGHTS: '/innovation/health/preventive-insights',
 };
 
 // Local Storage Keys
@@ -48,17 +56,6 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refresh_token',
   THEME: 'app_theme',
 };
-
-// Mock Users (for demo)
-export const MOCK_USERS = [
-  { email: 'hiendepzai', password: '123456', name: 'Hien Nguyen' },
-  { email: 'hienhihi', password: '159357', name: 'Hien Le' },
-  { email: 'admin@clinic.com', password: '123456', name: 'Admin User' },
-  { email: 'admin@example.com', password: '123456', name: 'Example Admin' },
-];
-
-// Mock OTP (for demo)
-export const MOCK_OTP = '123456';
 
 // Pagination
 export const PAGINATION = {
@@ -71,6 +68,12 @@ export const DATE_FORMATS = {
   DISPLAY: 'DD/MM/YYYY',
   API: 'YYYY-MM-DD',
   DATETIME: 'DD/MM/YYYY HH:mm',
+};
+
+// Internationalization defaults
+export const APP_I18N = {
+  LOCALE: 'en-GB',
+  CURRENCY: 'VND',
 };
 
 // Toast duration
