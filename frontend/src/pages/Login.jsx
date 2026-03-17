@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { STORAGE_KEYS, ROUTES } from '../constants';
 import { loginAPI } from '../services/auth';
+import './Login.css';
 
 export default function Login() {
   const navigate = useNavigate();
