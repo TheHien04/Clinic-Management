@@ -1,0 +1,146 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'Data/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'Data/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  frontend-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+    needs: frontend-quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Run lighthouse accessibility and performance audit
+        working-directory: frontend
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/frontend-preview.log 2>&1 &
+          PREVIEW_PID=$!
+
+          cleanup() {
+            kill "$PREVIEW_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for i in {1..30}; do
+            if curl -fsS "http://127.0.0.1:4173" >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          npx --yes lighthouse "http://127.0.0.1:4173" \
+            --only-categories=performance,accessibility \
+            --chrome-flags="--headless=new --no-sandbox" \
+            --output=json \
+            --output-path=./lighthouse-report.json
+
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('./lighthouse-report.json','utf8'));const p=Math.round(r.categories.performance.score*100);const a=Math.round(r.categories.accessibility.score*100);console.log('lighthouse_performance='+p);console.log('lighthouse_accessibility='+a);if(p<80||a<90){console.error('Lighthouse thresholds not met (required: performance>=80, accessibility>=90).');process.exit(1);}"
+
+  smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: YourStrong!Passw0rd
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DB_SERVER: 127.0.0.1
+      DB_USER: sa
+      DB_PASSWORD: YourStrong!Passw0rd
+      DB_NAME: ClinicManagement
+      DB_ENCRYPT: 'false'
+      DB_TRUST_SERVER_CERTIFICATE: 'true'
+      CORS_ORIGIN: http://localhost:5173
+      PORT: '5055'
+      PORT_FALLBACK_ATTEMPTS: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Deploy database schema and SQL artifacts
+        working-directory: backend
+        run: npm run db:deploy
+
+      - name: Run backend smoke test
+        working-directory: backend
+        run: npm run test:smoke

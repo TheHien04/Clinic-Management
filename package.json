@@ -1,4 +1,24 @@
 {
+  "name": "clinic-management-workspace",
+  "private": true,
+  "scripts": {
+    "dev:ports": "lsof -nP -iTCP:5173 -sTCP:LISTEN || true && lsof -nP -iTCP:5055 -sTCP:LISTEN || true",
+    "predev:stable": "bash ./scripts/dev-stable-clean.sh",
+    "dev:stable:clean": "bash ./scripts/dev-stable-clean.sh && npm run dev:stable",
+    "dev:stable:clean:keep": "bash ./scripts/dev-stable-keep.sh",
+    "dev:stable:keep": "bash ./scripts/dev-stable-keep.sh",
+    "dev:stable:stop": "bash ./scripts/dev-stable-stop.sh",
+    "dev:stable:health": "bash ./scripts/dev-stable-health.sh",
+    "dev:stable:status": "bash ./scripts/dev-stable-status.sh",
+    "dev:stable:logs": "tail -n 120 ./.dev-stable.log",
+    "dev:stable:logs:follow": "tail -f ./.dev-stable.log",
+    "dev:frontend": "cd frontend && npm run dev -- --port 5173 --strictPort",
+    "dev:backend": "cd backend && PORT=5055 PORT_FALLBACK_ATTEMPTS=1 npm run dev",
+    "dev:stable": "concurrently -k \"cd backend && PORT=5055 PORT_FALLBACK_ATTEMPTS=1 npm run dev\" \"cd frontend && npm run dev -- --port 5173 --strictPort\"",
+    "qa:release": "npm --prefix frontend run lint && npm --prefix frontend run test -- --run && npm --prefix frontend run build && PORT=5055 PORT_FALLBACK_ATTEMPTS=1 npm --prefix backend run test:smoke",
+    "qa:runtime": "npm run dev:stable:keep && npm run dev:stable:health && npm run dev:stable:status && npm run dev:stable:stop",
+    "qa:ultimate": "npm run qa:release && npm run qa:runtime"
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -7,5 +27,8 @@
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.2.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

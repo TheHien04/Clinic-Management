@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start:stable": "PORT=5055 PORT_FALLBACK_ATTEMPTS=1 node src/server.js",
+    "dev:stable": "PORT=5055 PORT_FALLBACK_ATTEMPTS=1 nodemon src/server.js",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:deploy": "npm run db:migrate",
+    "test": "node scripts/smoke_test.mjs",
+    "test:smoke": "node scripts/smoke_test.mjs"
   },
   "keywords": ["clinic", "management", "api", "express", "sql-server"],
   "author": "TheHien04",

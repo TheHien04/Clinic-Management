@@ -1,0 +1,6 @@
+{
+  "watch": ["src", "scripts"],
+  "ext": "js,mjs,cjs,json",
+  "ignore": ["../frontend/**", "../.dev-stable.log", "uploads/**", "node_modules/**"],
+  "delay": "200ms"
+}
