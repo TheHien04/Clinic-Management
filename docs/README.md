@@ -50,7 +50,7 @@ The system manages essential clinic operations including **patients, doctors, ap
 ## 🚀 Features  
 
 - **🔐 Authentication & Security**  
-  - User registration, login, and OTP verification  
+  - User registration and backend-authenticated login  
   - Role-based access (Admin, Doctor, Staff)  
   - Secure password hashing and session management  
 
@@ -92,6 +92,13 @@ creating a system that is both **academically rigorous** and **practically relev
 - **Backend:** API/Database integration (configurable)  
 - **Database:** Microsoft SQL Server
 - **Other Tools:** Node.js, npm  
+
+---
+
+## 📝 Release Notes
+
+- Latest readiness report: `docs/RELEASE_READINESS_2026-03-17.md`
+- Project changelog: `docs/CHANGELOG.md`
 
 ---
 

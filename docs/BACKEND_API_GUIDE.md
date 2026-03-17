@@ -228,6 +228,23 @@ POST   /api/upload/single       # Upload single file (protected)
 POST   /api/upload/multiple     # Upload multiple files (protected)
 ```
 
+### Innovation
+```
+GET    /api/innovation/security/posture                         # Runtime security posture (protected)
+POST   /api/innovation/ai/triage                                # Run triage and return signed decision package (protected)
+POST   /api/innovation/ai-triage/verify                         # Verify signed decision package (protected)
+GET    /api/innovation/ai-triage/policy                         # Get triage policy (protected)
+PUT    /api/innovation/ai-triage/policy                         # Update triage policy (protected)
+GET    /api/innovation/ai-triage/policy/history                 # Policy version history (protected)
+GET    /api/innovation/ai-triage/audit-trail                    # Signed triage audit trail (protected)
+GET    /api/innovation/ai-triage/signing-keys                   # List key ring and active key (protected)
+POST   /api/innovation/ai-triage/signing-keys/rotate            # Rotate signing key (protected)
+POST   /api/innovation/ai-triage/signing-keys/:keyId/activate   # Activate signing key (protected)
+POST   /api/innovation/ai-triage/signing-keys/:keyId/revoke     # Revoke signing key (protected)
+GET    /api/innovation/compliance/evidence                      # Export compliance evidence package (protected)
+POST   /api/innovation/maintenance/cleanup                      # Cleanup revoked keys and trim audit trail (protected)
+```
+
 ### Health Check
 ```
 GET    /api/health              # Server health status (public)
@@ -269,6 +286,11 @@ npm run dev
 ```
 
 Backend runs on: **http://localhost:5000**
+
+Run smoke tests:
+```bash
+npm run test:smoke
+```
 
 ### 2. Start Frontend
 

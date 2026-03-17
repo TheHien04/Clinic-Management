@@ -176,12 +176,12 @@ Expected output:
 ╔════════════════════════════════════════════════╗
 ║   🏥 Clinic Management API Server             ║
 ║                                                ║
-║   🚀 Server running on port 5000              ║
+║   🚀 Server running on port 5055              ║
 ║   🌐 Environment: development                  ║
-║   📡 API: http://localhost:5000                ║
+║   📡 API: http://localhost:5055                ║
 ║   🔌 WebSocket: Enabled                        ║
 ║                                                ║
-║   Documentation: http://localhost:5000/        ║
+║   Documentation: http://localhost:5055/        ║
 ╚════════════════════════════════════════════════╝
 ```
 
@@ -189,7 +189,7 @@ Expected output:
 
 ```bash
 # Health check
-curl http://localhost:5000/api/health
+curl http://localhost:5055/api/health
 
 # Should return:
 # {"success":true,"message":"Server is running",...}
@@ -230,8 +230,8 @@ cp .env.example .env
 Edit `.env`:
 
 ```env
-VITE_API_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5055/api
+VITE_SOCKET_URL=http://localhost:5055
 VITE_ENV=development
 ```
 
@@ -277,21 +277,10 @@ http://localhost:5173
 
 ### Login Credentials
 
-From database (Accounts table):
+Use an account that exists in `Accounts` table (or register a new one via API/UI):
 ```
-Email: hiendepzai
-Password: 123456
-
-Email: hienhihi
-Password: 159357
-```
-
-**Fallback (Mock Mode):**
-If backend is not running, app will use mock data:
-```
-Email: hiendepzai
-Password: 123456
-OTP: 123456
+Email: admin@clinic.com
+Password: <your-password>
 ```
 
 ---
@@ -302,9 +291,9 @@ OTP: 123456
 
 **Login:**
 ```bash
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST http://localhost:5055/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"hiendepzai","password":"123456"}'
+  -d '{"email":"admin@clinic.com","password":"<your-password>"}'
 ```
 
 Expected response:
@@ -322,7 +311,7 @@ Expected response:
 
 **Register:**
 ```bash
-curl -X POST http://localhost:5000/api/auth/register \
+curl -X POST http://localhost:5055/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email":"newuser@clinic.com",
@@ -336,7 +325,7 @@ curl -X POST http://localhost:5000/api/auth/register \
 Get all appointments (requires token):
 ```bash
 # Replace <TOKEN> with actual JWT token from login
-curl http://localhost:5000/api/appointments \
+curl http://localhost:5055/api/appointments \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
@@ -345,7 +334,7 @@ curl http://localhost:5000/api/appointments \
 Open browser console and run:
 ```javascript
 // Connect to WebSocket
-const socket = io('http://localhost:5000', {
+const socket = io('http://localhost:5055', {
   auth: { token: localStorage.getItem('auth_token') }
 });
 
@@ -366,7 +355,7 @@ socket.emit('subscribe:appointments');
 
 ```bash
 # Upload single file
-curl -X POST http://localhost:5000/api/upload/single \
+curl -X POST http://localhost:5055/api/upload/single \
   -H "Authorization: Bearer <TOKEN>" \
   -F "file=@/path/to/your/file.jpg"
 ```
@@ -395,15 +384,15 @@ Solution:
 4. Try DB_TRUST_SERVER_CERTIFICATE=true
 ```
 
-**❌ Port 5000 already in use**
+**❌ Port 5055 already in use**
 ```bash
-# Find process using port 5000
-lsof -i :5000
+# Find process using port 5055
+lsof -i :5055
 
 # Kill process (macOS/Linux)
 kill -9 <PID>
 
-# Or change PORT in .env to 5001
+# Or change PORT in .env to 5056
 ```
 
 **❌ Module not found errors**
@@ -418,7 +407,7 @@ npm install
 **❌ API connection failed**
 ```
 Solution:
-1. Check backend is running on http://localhost:5000
+1. Check backend is running on http://localhost:5055
 2. Verify VITE_API_URL in .env
 3. Check CORS settings in backend
 4. Open browser console for detailed errors
@@ -444,7 +433,7 @@ npm run dev
 
 **CORS Error:**
 ```
-Access to XMLHttpRequest at 'http://localhost:5000/api/...' 
+Access to XMLHttpRequest at 'http://localhost:5055/api/...' 
 from origin 'http://localhost:5173' has been blocked by CORS
 ```
 Solution: Check `CORS_ORIGIN` in backend `.env` matches frontend URL.
@@ -493,7 +482,7 @@ Solution: Check database schema matches expected structure. Re-run SQL scripts.
 - [x] Constants & theming
 - [x] CSV export functionality
 - [x] File upload utilities
-- [x] Mock data fallback
+- [x] Backend-authenticated route protection
 
 ---
 
@@ -506,6 +495,7 @@ Solution: Check database schema matches expected structure. Re-run SQL scripts.
 
 2. **Production Deployment:**
    - Setup environment variables
+  - Ensure required production vars are set: `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`, `SOCKET_CORS_ORIGIN`, `DB_PASSWORD`
    - Configure SSL/TLS
    - Setup reverse proxy (nginx)
    - Enable production optimizations
@@ -522,9 +512,9 @@ Solution: Check database schema matches expected structure. Re-run SQL scripts.
 
 ## 📚 Documentation
 
-- **Backend API:** http://localhost:5000/ (when server running)
+- **Backend API:** http://localhost:5055/ (when server running)
 - **Backend README:** `/backend/README.md`
-- **Frontend README:** `/clinic-management/README.md`
+- **Frontend README:** `/frontend/README.md`
 - **Improvements Doc:** `/IMPROVEMENTS.md`
 
 ---
