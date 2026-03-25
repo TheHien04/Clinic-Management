@@ -6,6 +6,23 @@ import bcrypt from 'bcryptjs';
 import { executeQuery } from '../config/database.js';
 import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { isValidEmail, validatePassword, sanitizeInput } from '../utils/validators.js';
+import { cleanupAuthAuditEvents, recordAuthAuditEvent } from '../utils/securityAudit.js';
+
+const getClientMeta = (req) => {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const clientIp = forwarded || req.ip || req.socket?.remoteAddress || 'unknown';
+  const userAgent = String(req.headers['user-agent'] || '').trim();
+  return { clientIp, userAgent };
+};
+
+const auditAuthEvent = (req, payload) => {
+  const { clientIp, userAgent } = getClientMeta(req);
+  recordAuthAuditEvent({
+    ...payload,
+    clientIp,
+    userAgent,
+  }).catch(() => {});
+};
 
 /**
  * Register new user
@@ -17,6 +34,12 @@ export const register = async (req, res) => {
 
     // Validate input
     if (!email || !password || !name) {
+      auditAuthEvent(req, {
+        eventType: 'register',
+        eventStatus: 'failed',
+        email,
+        reason: 'missing_required_fields',
+      });
       return res.status(400).json({
         success: false,
         message: 'Please provide email, password, and name'
@@ -24,6 +47,12 @@ export const register = async (req, res) => {
     }
 
     if (!isValidEmail(email)) {
+      auditAuthEvent(req, {
+        eventType: 'register',
+        eventStatus: 'failed',
+        email,
+        reason: 'invalid_email_format',
+      });
       return res.status(400).json({
         success: false,
         message: 'Invalid email format'
@@ -32,6 +61,12 @@ export const register = async (req, res) => {
 
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
+      auditAuthEvent(req, {
+        eventType: 'register',
+        eventStatus: 'failed',
+        email,
+        reason: 'weak_password',
+      });
       return res.status(400).json({
         success: false,
         message: passwordValidation.message
@@ -43,6 +78,12 @@ export const register = async (req, res) => {
     const existingUser = await executeQuery(checkUserQuery, { email });
 
     if (existingUser.recordset.length > 0) {
+      auditAuthEvent(req, {
+        eventType: 'register',
+        eventStatus: 'failed',
+        email,
+        reason: 'email_already_exists',
+      });
       return res.status(400).json({
         success: false,
         message: 'User with this email already exists'
@@ -79,6 +120,14 @@ export const register = async (req, res) => {
       id: user.AccountID
     });
 
+    auditAuthEvent(req, {
+      eventType: 'register',
+      eventStatus: 'success',
+      email: user.Email,
+      accountId: user.AccountID,
+      reason: 'registered',
+    });
+
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -95,6 +144,12 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
+    auditAuthEvent(req, {
+      eventType: 'register',
+      eventStatus: 'error',
+      email: req.body?.email,
+      reason: 'server_error',
+    });
     res.status(500).json({
       success: false,
       message: 'Server error during registration'
@@ -112,6 +167,12 @@ export const login = async (req, res) => {
 
     // Validate input
     if (!email || !password) {
+      auditAuthEvent(req, {
+        eventType: 'login',
+        eventStatus: 'failed',
+        email,
+        reason: 'missing_required_fields',
+      });
       return res.status(400).json({
         success: false,
         message: 'Please provide email and password'
@@ -128,6 +189,12 @@ export const login = async (req, res) => {
     const result = await executeQuery(query, { email });
 
     if (result.recordset.length === 0) {
+      auditAuthEvent(req, {
+        eventType: 'login',
+        eventStatus: 'failed',
+        email,
+        reason: 'invalid_credentials_user_not_found',
+      });
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -140,6 +207,13 @@ export const login = async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.Password);
 
     if (!isPasswordValid) {
+      auditAuthEvent(req, {
+        eventType: 'login',
+        eventStatus: 'failed',
+        email,
+        accountId: user.AccountID,
+        reason: 'invalid_credentials_wrong_password',
+      });
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -155,6 +229,14 @@ export const login = async (req, res) => {
 
     const refreshToken = generateRefreshToken({
       id: user.AccountID
+    });
+
+    auditAuthEvent(req, {
+      eventType: 'login',
+      eventStatus: 'success',
+      email: user.Email,
+      accountId: user.AccountID,
+      reason: 'authenticated',
     });
 
     res.json({
@@ -173,6 +255,12 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    auditAuthEvent(req, {
+      eventType: 'login',
+      eventStatus: 'error',
+      email: req.body?.email,
+      reason: 'server_error',
+    });
     res.status(500).json({
       success: false,
       message: 'Server error during login'
@@ -189,6 +277,11 @@ export const refreshToken = async (req, res) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
+      auditAuthEvent(req, {
+        eventType: 'refresh_token',
+        eventStatus: 'failed',
+        reason: 'missing_refresh_token',
+      });
       return res.status(400).json({
         success: false,
         message: 'Refresh token required'
@@ -208,6 +301,12 @@ export const refreshToken = async (req, res) => {
     const result = await executeQuery(query, { id: decoded.id });
 
     if (result.recordset.length === 0) {
+      auditAuthEvent(req, {
+        eventType: 'refresh_token',
+        eventStatus: 'failed',
+        accountId: decoded.id,
+        reason: 'invalid_refresh_token_user_not_found',
+      });
       return res.status(401).json({
         success: false,
         message: 'Invalid refresh token'
@@ -222,6 +321,14 @@ export const refreshToken = async (req, res) => {
       role: user.Role
     });
 
+    auditAuthEvent(req, {
+      eventType: 'refresh_token',
+      eventStatus: 'success',
+      email: user.Email,
+      accountId: user.AccountID,
+      reason: 'token_refreshed',
+    });
+
     res.json({
       success: true,
       data: {
@@ -230,6 +337,11 @@ export const refreshToken = async (req, res) => {
     });
   } catch (error) {
     console.error('Refresh token error:', error);
+    auditAuthEvent(req, {
+      eventType: 'refresh_token',
+      eventStatus: 'error',
+      reason: 'invalid_or_expired_refresh_token',
+    });
     res.status(401).json({
       success: false,
       message: 'Invalid or expired refresh token'
@@ -280,4 +392,260 @@ export const getMe = async (req, res) => {
   }
 };
 
-export default { register, login, refreshToken, getMe };
+/**
+ * Get security audit events (admin only)
+ * GET /api/auth/security-audit
+ */
+export const getSecurityAudit = async (req, res) => {
+  try {
+    const limit = Math.min(500, Math.max(1, Number.parseInt(String(req.query.limit || '100'), 10) || 100));
+    const eventType = String(req.query.eventType || '').trim();
+    const eventStatus = String(req.query.eventStatus || '').trim();
+    const format = String(req.query.format || 'json').trim().toLowerCase();
+
+    const result = await executeQuery(
+      `
+      IF OBJECT_ID('dbo.SecurityAuthAudit', 'U') IS NULL
+      BEGIN
+        SELECT TOP 0
+          CAST(NULL AS INT) AS AuditId,
+          CAST(NULL AS NVARCHAR(80)) AS EventType,
+          CAST(NULL AS NVARCHAR(32)) AS EventStatus,
+          CAST(NULL AS NVARCHAR(255)) AS Email,
+          CAST(NULL AS INT) AS AccountId,
+          CAST(NULL AS NVARCHAR(255)) AS Reason,
+          CAST(NULL AS NVARCHAR(120)) AS ClientIp,
+          CAST(NULL AS NVARCHAR(512)) AS UserAgent,
+          CAST(NULL AS DATETIME2) AS CreatedAt;
+      END
+      ELSE
+      BEGIN
+        SELECT TOP (@limit)
+          AuditId,
+          EventType,
+          EventStatus,
+          Email,
+          AccountId,
+          Reason,
+          ClientIp,
+          UserAgent,
+          CreatedAt
+        FROM dbo.SecurityAuthAudit
+        WHERE (@eventType = '' OR EventType = @eventType)
+          AND (@eventStatus = '' OR EventStatus = @eventStatus)
+        ORDER BY CreatedAt DESC;
+      END
+      `,
+      {
+        limit,
+        eventType,
+        eventStatus,
+      }
+    );
+
+    const rows = result.recordset || [];
+
+    if (format === 'csv') {
+      const header = ['AuditId', 'EventType', 'EventStatus', 'Email', 'AccountId', 'Reason', 'ClientIp', 'UserAgent', 'CreatedAt'];
+      const csvLines = [header.join(',')];
+
+      rows.forEach((row) => {
+        const values = header.map((key) => {
+          const raw = row[key] == null ? '' : String(row[key]);
+          return `"${raw.replace(/"/g, '""')}"`;
+        });
+        csvLines.push(values.join(','));
+      });
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="security-auth-audit.csv"');
+      return res.status(200).send(csvLines.join('\n'));
+    }
+
+    return res.json({
+      success: true,
+      data: rows,
+      metadata: {
+        limit,
+        count: rows.length,
+        filters: {
+          eventType: eventType || null,
+          eventStatus: eventStatus || null,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get security audit error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while retrieving security audit log',
+    });
+  }
+};
+
+/**
+ * Cleanup security audit rows older than retention window (admin only)
+ * POST /api/auth/security-audit/cleanup
+ */
+export const cleanupSecurityAudit = async (req, res) => {
+  try {
+    const retentionDays = Number.parseInt(String(req.body?.retentionDays || process.env.SECURITY_AUDIT_RETENTION_DAYS || '90'), 10);
+    const result = await cleanupAuthAuditEvents(retentionDays);
+
+    return res.json({
+      success: true,
+      message: 'Security audit cleanup completed',
+      data: result,
+    });
+  } catch (error) {
+    console.error('Cleanup security audit error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while cleaning security audit log',
+    });
+  }
+};
+
+/**
+ * GDPR-style export of account profile by account ID (admin only)
+ * GET /api/auth/privacy/export/:accountId
+ */
+export const exportPrivacyData = async (req, res) => {
+  try {
+    const accountId = Number.parseInt(String(req.params.accountId || ''), 10);
+    if (!Number.isFinite(accountId) || accountId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account ID',
+      });
+    }
+
+    const accountResult = await executeQuery(
+      `
+      SELECT TOP 1
+        AccountID,
+        Email,
+        FullName,
+        Role,
+        PhoneNumber,
+        IsActive,
+        CreatedDate
+      FROM Accounts
+      WHERE AccountID = @accountId
+      `,
+      { accountId }
+    );
+
+    if (!accountResult.recordset.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Account not found',
+      });
+    }
+
+    const account = accountResult.recordset[0];
+
+    const auditResult = await executeQuery(
+      `
+      IF OBJECT_ID('dbo.SecurityAuthAudit', 'U') IS NULL
+      BEGIN
+        SELECT TOP 0 AuditId, EventType, EventStatus, Email, AccountId, Reason, ClientIp, UserAgent, CreatedAt
+      END
+      ELSE
+      BEGIN
+        SELECT TOP 200 AuditId, EventType, EventStatus, Email, AccountId, Reason, ClientIp, UserAgent, CreatedAt
+        FROM dbo.SecurityAuthAudit
+        WHERE AccountId = @accountId
+        ORDER BY CreatedAt DESC;
+      END
+      `,
+      { accountId }
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        account,
+        securityAudit: auditResult.recordset || [],
+      },
+      metadata: {
+        exportedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Export privacy data error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while exporting privacy data',
+    });
+  }
+};
+
+/**
+ * GDPR-style anonymize/deactivate account by account ID (admin only)
+ * POST /api/auth/privacy/anonymize/:accountId
+ */
+export const anonymizePrivacyData = async (req, res) => {
+  try {
+    const accountId = Number.parseInt(String(req.params.accountId || ''), 10);
+    if (!Number.isFinite(accountId) || accountId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account ID',
+      });
+    }
+
+    const randomPasswordSeed = `disabled-${Date.now()}-${Math.random()}`;
+    const replacementPassword = await bcrypt.hash(randomPasswordSeed, 10);
+
+    const result = await executeQuery(
+      `
+      UPDATE Accounts
+      SET
+        Email = CONCAT('anonymized+', CAST(AccountID AS NVARCHAR(20)), '@redacted.local'),
+        FullName = 'Anonymized User',
+        PhoneNumber = NULL,
+        Password = @replacementPassword,
+        IsActive = 0
+      OUTPUT INSERTED.AccountID, INSERTED.Email, INSERTED.FullName, INSERTED.IsActive
+      WHERE AccountID = @accountId
+      `,
+      {
+        accountId,
+        replacementPassword,
+      }
+    );
+
+    if (!result.recordset.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Account not found',
+      });
+    }
+
+    const updated = result.recordset[0];
+
+    return res.json({
+      success: true,
+      message: 'Account anonymized successfully',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Anonymize privacy data error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while anonymizing privacy data',
+    });
+  }
+};
+
+export default {
+  register,
+  login,
+  refreshToken,
+  getMe,
+  getSecurityAudit,
+  cleanupSecurityAudit,
+  exportPrivacyData,
+  anonymizePrivacyData,
+};

@@ -1,0 +1,44 @@
+name: Security Scan
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'package.json'
+      - '.github/workflows/security-scan.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'package.json'
+      - '.github/workflows/security-scan.yml'
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run backend security audit (critical threshold)
+        working-directory: backend
+        run: npm audit --audit-level=critical
+
+      - name: Run frontend security audit (critical threshold)
+        working-directory: frontend
+        run: npm audit --audit-level=critical

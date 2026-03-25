@@ -6,6 +6,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
@@ -14,6 +15,7 @@ import { fileURLToPath } from 'url';
 
 // Import configurations
 import { getPool, closePool } from './config/database.js';
+import { connectMongo, closeMongoClient, getMongoStatus } from './config/nosql.js';
 import { getAllowedOrigins, validateProductionEnv } from './config/env.js';
 
 // Import routes
@@ -32,6 +34,10 @@ import innovationRoutes from './routes/innovation.js';
 
 // Import middleware
 import { notFound, errorHandler } from './middleware/errorHandler.js';
+import { apiRateLimiter } from './middleware/security.js';
+import { stateChangeOriginGuard } from './middleware/requestGuard.js';
+import { csrfProtection } from './middleware/csrf.js';
+import { startSecurityAuditRetentionJob, stopSecurityAuditRetentionJob } from './utils/securityAudit.js';
 
 // Import socket
 import { initSocket } from './socket/index.js';
@@ -56,7 +62,13 @@ const httpServer = createServer(app);
 const io = initSocket(httpServer);
 
 // Middleware
-app.use(helmet()); // Security headers
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  referrerPolicy: { policy: 'no-referrer' },
+  hsts: process.env.NODE_ENV === 'production',
+})); // Security headers
 app.use(cors({
   origin: getAllowedOrigins('CORS_ORIGIN'),
   credentials: true
@@ -64,11 +76,15 @@ app.use(cors({
 app.use(morgan('dev')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(cookieParser());
+app.use(stateChangeOriginGuard);
+app.use(csrfProtection);
 
 // Serve static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API Routes
+app.use('/api', apiRateLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/patients', patientRoutes);
@@ -89,7 +105,11 @@ app.get('/api/health', (req, res) => {
     message: 'Server is running',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    databases: {
+      sqlServer: 'connected',
+      mongo: getMongoStatus(),
+    },
   });
 });
 
@@ -156,6 +176,12 @@ const startServer = async () => {
     await getPool();
     console.log('✅ Database connected successfully');
 
+    // Optional NoSQL connection for advanced DB workflows.
+    await connectMongo();
+
+    // Start background cleanup for auth security audit retention.
+    startSecurityAuditRetentionJob();
+
     // Start server with automatic fallback when a port is occupied.
     const activePort = await listenWithFallback();
 
@@ -187,7 +213,9 @@ const gracefulShutdown = async () => {
   });
 
   // Close database connection
+  stopSecurityAuditRetentionJob();
   await closePool();
+  await closeMongoClient();
   
   process.exit(0);
 };
