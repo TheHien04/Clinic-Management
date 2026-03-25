@@ -230,33 +230,57 @@ export default function MedicalRecords() {
       };
       
       const response = await getMedicalRecordsAPI(params);
+      const isUnfilteredWindow = !params.startDate && !params.endDate;
+      const applyDemoFallback = (message) => {
+        if (!isUnfilteredWindow) {
+          setUsingFallback(false);
+          setRecords([]);
+          setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }));
+          if (message) {
+            setToast({ message, type: 'warning' });
+          }
+          return;
+        }
+
+        setUsingFallback(true);
+        setRecords(MOCK_RECORDS);
+        setPagination((prev) => ({ ...prev, page: 1, total: MOCK_RECORDS.length, totalPages: 1 }));
+        if (message) {
+          setToast({ message, type: 'warning' });
+        }
+      };
       
       if (response.success) {
         const hasServerData = Array.isArray(response.data) && response.data.length > 0;
-        const isDefaultView = !params.startDate && !params.endDate && Number(pagination.page) === 1;
-
         // Keep dashboards populated in demo mode when backend is reachable but unseeded.
-        if (!hasServerData && isDefaultView) {
-          setUsingFallback(true);
-          setRecords(MOCK_RECORDS);
-          setPagination((prev) => ({ ...prev, total: MOCK_RECORDS.length, totalPages: 1 }));
-          setToast({ message: 'No medical records found in backend yet, showing demo dataset.', type: 'warning' });
+        if (!hasServerData) {
+          applyDemoFallback('No medical records found in backend yet, showing demo dataset.');
         } else {
           setUsingFallback(false);
           setRecords(response.data);
           setPagination(prev => ({
             ...prev,
-            total: response.pagination.total,
-            totalPages: response.pagination.totalPages
+            total: Number(response.pagination?.total || response.data.length || 0),
+            totalPages: Number(response.pagination?.totalPages || 1)
           }));
         }
+      } else {
+        applyDemoFallback('Medical record service returned no usable data, showing demo dataset.');
       }
     } catch (error) {
       console.error('Fetch records error:', error);
-      setUsingFallback(true);
-      setRecords(MOCK_RECORDS);
-      setPagination((prev) => ({ ...prev, total: MOCK_RECORDS.length, totalPages: 1 }));
-      setToast({ message: 'Backend medical records unavailable, using demo records.', type: 'warning' });
+      const hasDateFilter = Boolean(filter.startDate || filter.endDate);
+      if (hasDateFilter) {
+        setUsingFallback(false);
+        setRecords([]);
+        setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }));
+        setToast({ message: 'Backend medical records unavailable for this filtered query.', type: 'warning' });
+      } else {
+        setUsingFallback(true);
+        setRecords(MOCK_RECORDS);
+        setPagination((prev) => ({ ...prev, page: 1, total: MOCK_RECORDS.length, totalPages: 1 }));
+        setToast({ message: 'Backend medical records unavailable, using demo records.', type: 'warning' });
+      }
     } finally {
       setLoading(false);
     }

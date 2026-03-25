@@ -134,6 +134,24 @@ describe('MedicalRecords integration', () => {
     });
   });
 
+  it('falls back to demo records when API returns empty payload', async () => {
+    getMedicalRecordsAPIMock.mockResolvedValueOnce({
+      success: true,
+      data: [],
+      pagination: {
+        total: 0,
+        totalPages: 0,
+      },
+    });
+
+    render(<MedicalRecords />);
+
+    await waitFor(() => {
+      expect(screen.getByText('No medical records found in backend yet, showing demo dataset.')).toBeTruthy();
+      expect(screen.getAllByText('Nguyen Van A').length).toBeGreaterThan(0);
+    });
+  });
+
   it('opens detail modal and renders admin compliance section', async () => {
     localStorage.setItem('user', JSON.stringify({ role: 'admin' }));
 
