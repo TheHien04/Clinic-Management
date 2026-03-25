@@ -82,6 +82,21 @@ export const getInnovationModelOpsReadiness = async () => {
   return response.data;
 };
 
+export const getInnovationModelOpsSloTrend = async () => {
+  const response = await apiClient.get('/innovation/modelops/slo-trend');
+  return response.data;
+};
+
+export const getInnovationBackupDrills = async () => {
+  const response = await apiClient.get('/innovation/resilience/backup-drills');
+  return response.data;
+};
+
+export const recordInnovationBackupDrill = async (payload) => {
+  const response = await apiClient.post('/innovation/resilience/backup-drills', payload);
+  return response.data;
+};
+
 export default {
   getSecurityPostureAPI,
   postAiTriageAPI,
@@ -98,4 +113,7 @@ export default {
   getInnovationComplianceEvidence,
   runInnovationMaintenanceCleanup,
   getInnovationModelOpsReadiness,
+  getInnovationModelOpsSloTrend,
+  getInnovationBackupDrills,
+  recordInnovationBackupDrill,
 };

@@ -8,9 +8,12 @@ import {
   getAiAuditTrail,
   getAiTriagePolicy,
   getAiTriagePolicyHistory,
+  getBackupRestoreDrills,
   getComplianceEvidencePackage,
   getModelOpsReadiness,
+  getModelOpsSloTrend,
   postActivateSigningKey,
+  postBackupRestoreDrill,
   getSigningKeys,
   getSecurityPosture,
   postMaintenanceCleanup,
@@ -40,6 +43,9 @@ router.post('/ai-triage/signing-keys/:keyId/activate', postActivateSigningKey);
 router.post('/ai-triage/signing-keys/:keyId/revoke', postRevokeSigningKey);
 router.get('/compliance/evidence', getComplianceEvidencePackage);
 router.get('/modelops/readiness', getModelOpsReadiness);
+router.get('/modelops/slo-trend', getModelOpsSloTrend);
+router.get('/resilience/backup-drills', getBackupRestoreDrills);
+router.post('/resilience/backup-drills', postBackupRestoreDrill);
 router.post('/maintenance/cleanup', postMaintenanceCleanup);
 
 export default router;

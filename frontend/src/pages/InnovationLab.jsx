@@ -8,12 +8,15 @@ import {
   getAiTriagePolicy,
   getAiTriagePolicyHistory,
   getInnovationComplianceEvidence,
+  getInnovationBackupDrills,
   getInnovationModelOpsReadiness,
+  getInnovationModelOpsSloTrend,
   getInnovationSigningKeys,
   getSecurityPostureAPI,
   postAiTriageAPI,
   postPreventiveInsightsAPI,
   revokeInnovationSigningKey,
+  recordInnovationBackupDrill,
   rotateInnovationSigningKey,
   runInnovationMaintenanceCleanup,
   updateAiTriagePolicy,
@@ -65,6 +68,18 @@ export default function InnovationLab() {
   const [maintenanceStatus, setMaintenanceStatus] = useState('');
   const [modelOps, setModelOps] = useState(null);
   const [modelOpsError, setModelOpsError] = useState('');
+  const [sloTrend, setSloTrend] = useState(null);
+  const [sloError, setSloError] = useState('');
+  const [backupDrills, setBackupDrills] = useState({ summary: null, drills: [] });
+  const [backupError, setBackupError] = useState('');
+  const [drillDraft, setDrillDraft] = useState({
+    scenario: 'database-failover',
+    rpoTargetMinutes: 15,
+    rtoTargetMinutes: 60,
+    rpoAchievedMinutes: 12,
+    rtoAchievedMinutes: 54,
+    evidenceNote: 'Routine resilience validation drill',
+  });
 
   const loadSigningKeys = async () => {
     setKeyStatus('');
@@ -230,6 +245,8 @@ export default function InnovationLab() {
     loadAuditTrail();
     loadSigningKeys();
     loadModelOps();
+    loadSloTrend();
+    loadBackupDrills();
 
     const unsubscribe = subscribeInnovationEmergency((event) => {
       setEmergencyFeed((prev) => [event, ...prev].slice(0, 20));
@@ -257,6 +274,47 @@ export default function InnovationLab() {
       setModelOps(data);
     } catch (error) {
       setModelOpsError(error?.message || 'Unable to fetch ModelOps readiness');
+    }
+  };
+
+  const loadSloTrend = async () => {
+    setSloError('');
+    try {
+      const data = await getInnovationModelOpsSloTrend();
+      setSloTrend(data);
+    } catch (error) {
+      setSloError(error?.message || 'Unable to fetch SLO trend');
+    }
+  };
+
+  const loadBackupDrills = async () => {
+    setBackupError('');
+    try {
+      const data = await getInnovationBackupDrills();
+      setBackupDrills({
+        summary: data.summary || null,
+        drills: Array.isArray(data.drills) ? data.drills : [],
+      });
+    } catch (error) {
+      setBackupError(error?.message || 'Unable to fetch backup drill evidence');
+    }
+  };
+
+  const submitBackupDrill = async (event) => {
+    event.preventDefault();
+    setBackupError('');
+    try {
+      await recordInnovationBackupDrill({
+        scenario: drillDraft.scenario,
+        rpoTargetMinutes: Number(drillDraft.rpoTargetMinutes),
+        rtoTargetMinutes: Number(drillDraft.rtoTargetMinutes),
+        rpoAchievedMinutes: Number(drillDraft.rpoAchievedMinutes),
+        rtoAchievedMinutes: Number(drillDraft.rtoAchievedMinutes),
+        evidenceNote: drillDraft.evidenceNote,
+      });
+      await loadBackupDrills();
+    } catch (error) {
+      setBackupError(error?.message || 'Unable to record backup drill');
     }
   };
 
@@ -525,6 +583,58 @@ export default function InnovationLab() {
                 <p>Generated at: {modelOps.generatedAt}</p>
               </div>
             )}
+          </section>
+
+          <section className="innovation-card">
+            <h3>SLO Trend Windows (7/30 Days)</h3>
+            <button type="button" onClick={loadSloTrend}>Refresh SLO Trend</button>
+            {sloError && <p>{sloError}</p>}
+            {sloTrend && (
+              <div>
+                <p><b>7d availability:</b> {sloTrend.summary?.last7Days?.availabilityPct}%</p>
+                <p><b>30d availability:</b> {sloTrend.summary?.last30Days?.availabilityPct}%</p>
+                <p><b>7d emergency rate:</b> {sloTrend.summary?.last7Days?.emergencyRatePct}%</p>
+                <p><b>30d MTTR:</b> {sloTrend.summary?.last30Days?.mttrMinutes} min</p>
+                <p><b>30d triage volume:</b> {sloTrend.summary?.last30Days?.triageCount}</p>
+                <div className="innovation-list">
+                  {(sloTrend.daily || []).slice(-7).map((row) => (
+                    <p key={row.date}>
+                      {row.date} | avail {row.availabilityPct}% | emergency {row.emergencyRatePct}% | triage {row.triageCount}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="innovation-card">
+            <h3>Backup & Restore Drill Evidence</h3>
+            <form className="innovation-form" onSubmit={submitBackupDrill}>
+              <input value={drillDraft.scenario} onChange={(e) => setDrillDraft((p) => ({ ...p, scenario: e.target.value }))} placeholder="Scenario" />
+              <input value={drillDraft.rpoTargetMinutes} type="number" onChange={(e) => setDrillDraft((p) => ({ ...p, rpoTargetMinutes: e.target.value }))} placeholder="RPO target (minutes)" />
+              <input value={drillDraft.rtoTargetMinutes} type="number" onChange={(e) => setDrillDraft((p) => ({ ...p, rtoTargetMinutes: e.target.value }))} placeholder="RTO target (minutes)" />
+              <input value={drillDraft.rpoAchievedMinutes} type="number" onChange={(e) => setDrillDraft((p) => ({ ...p, rpoAchievedMinutes: e.target.value }))} placeholder="RPO achieved (minutes)" />
+              <input value={drillDraft.rtoAchievedMinutes} type="number" onChange={(e) => setDrillDraft((p) => ({ ...p, rtoAchievedMinutes: e.target.value }))} placeholder="RTO achieved (minutes)" />
+              <input value={drillDraft.evidenceNote} onChange={(e) => setDrillDraft((p) => ({ ...p, evidenceNote: e.target.value }))} placeholder="Evidence note" />
+              <button type="submit">Record Drill Evidence</button>
+            </form>
+            <div className="innovation-inline-actions">
+              <button type="button" onClick={loadBackupDrills}>Refresh Drill History</button>
+            </div>
+            {backupError && <p>{backupError}</p>}
+            {backupDrills.summary && (
+              <p>
+                Drills: {backupDrills.summary.totalDrills} | Pass rate: {backupDrills.summary.passRatePct}% | Latest: {backupDrills.summary.latestCompletedAt || '-'}
+              </p>
+            )}
+            <div className="innovation-list">
+              {(backupDrills.drills || []).map((drill) => (
+                <p key={`${drill.drillId}-${drill.completedAt}`}>
+                  {drill.completedAt} | {drill.scenario} | {drill.resultStatus?.toUpperCase()} | RPO {drill.rpoAchievedMinutes}/{drill.rpoTargetMinutes} | RTO {drill.rtoAchievedMinutes}/{drill.rtoTargetMinutes}
+                </p>
+              ))}
+              {(backupDrills.drills || []).length === 0 && <p>No drill evidence recorded yet.</p>}
+            </div>
           </section>
 
           <section className="innovation-card innovation-emergency-card">

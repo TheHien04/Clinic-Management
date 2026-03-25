@@ -17,6 +17,9 @@ const activateInnovationSigningKeyMock = vi.fn();
 const revokeInnovationSigningKeyMock = vi.fn();
 const runInnovationMaintenanceCleanupMock = vi.fn();
 const getInnovationModelOpsReadinessMock = vi.fn();
+const getInnovationModelOpsSloTrendMock = vi.fn();
+const getInnovationBackupDrillsMock = vi.fn();
+const recordInnovationBackupDrillMock = vi.fn();
 const subscribeInnovationEmergencyMock = vi.fn();
 
 vi.mock('../components/Sidebar', () => ({
@@ -42,6 +45,9 @@ vi.mock('../services/innovation', () => ({
   revokeInnovationSigningKey: (...args) => revokeInnovationSigningKeyMock(...args),
   runInnovationMaintenanceCleanup: (...args) => runInnovationMaintenanceCleanupMock(...args),
   getInnovationModelOpsReadiness: (...args) => getInnovationModelOpsReadinessMock(...args),
+  getInnovationModelOpsSloTrend: (...args) => getInnovationModelOpsSloTrendMock(...args),
+  getInnovationBackupDrills: (...args) => getInnovationBackupDrillsMock(...args),
+  recordInnovationBackupDrill: (...args) => recordInnovationBackupDrillMock(...args),
   getInnovationComplianceEvidence: vi.fn(),
 }));
 
@@ -102,6 +108,38 @@ describe('InnovationLab integration', () => {
       signing: {
         integrityPct: 100,
       },
+    });
+    getInnovationModelOpsSloTrendMock.mockResolvedValue({
+      summary: {
+        last7Days: { availabilityPct: 99.4, emergencyRatePct: 8.2 },
+        last30Days: { availabilityPct: 99.1, mttrMinutes: 18.5, triageCount: 120 },
+      },
+      daily: [
+        { date: '2026-01-10', availabilityPct: 99.5, emergencyRatePct: 7, triageCount: 14 },
+      ],
+    });
+    getInnovationBackupDrillsMock.mockResolvedValue({
+      summary: {
+        totalDrills: 3,
+        passRatePct: 67,
+        latestCompletedAt: '2026-01-14T10:00:00.000Z',
+      },
+      drills: [
+        {
+          drillId: 10,
+          completedAt: '2026-01-14T10:00:00.000Z',
+          scenario: 'database-failover',
+          resultStatus: 'pass',
+          rpoAchievedMinutes: 9,
+          rpoTargetMinutes: 15,
+          rtoAchievedMinutes: 42,
+          rtoTargetMinutes: 60,
+        },
+      ],
+    });
+    recordInnovationBackupDrillMock.mockResolvedValue({
+      success: true,
+      data: { drillId: 11 },
     });
     rotateInnovationSigningKeyMock.mockResolvedValue({
       keys: [
@@ -179,6 +217,8 @@ describe('InnovationLab integration', () => {
       expect(screen.getByText('AI Policy Engine Governance')).toBeTruthy();
       expect(screen.getByText('Signing Key Lifecycle')).toBeTruthy();
       expect(screen.getByText('ModelOps Reliability Monitor')).toBeTruthy();
+      expect(screen.getByText('SLO Trend Windows (7/30 Days)')).toBeTruthy();
+      expect(screen.getByText('Backup & Restore Drill Evidence')).toBeTruthy();
       expect(screen.getByText('Active key: key-active-1')).toBeTruthy();
       expect(screen.getByText('Current policy version: 3')).toBeTruthy();
       expect(screen.getByText(/At-rest encryption: ENABLED/i)).toBeTruthy();

@@ -59,6 +59,7 @@ const triagePolicyHistory = [
 ];
 
 const triageAuditTrail = [];
+const backupDrillTrail = [];
 let innovationPersistenceEnabled = true;
 let innovationPersistenceInitPromise = null;
 
@@ -84,6 +85,68 @@ const percentile = (values, p) => {
   const sorted = [...values].sort((a, b) => a - b);
   const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((p / 100) * sorted.length)));
   return sorted[idx];
+};
+
+const toIsoDate = (value) => {
+  const parsed = new Date(value || Date.now());
+  if (Number.isNaN(parsed.getTime())) return new Date().toISOString().slice(0, 10);
+  return parsed.toISOString().slice(0, 10);
+};
+
+const buildDailySloBuckets = (events, days = 30) => {
+  const now = new Date();
+  const dateKeys = Array.from({ length: days }, (_, idx) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - idx - 1));
+    return d.toISOString().slice(0, 10);
+  });
+
+  const grouped = new Map(dateKeys.map((key) => [key, []]));
+  events.forEach((event) => {
+    const key = toIsoDate(event.generatedAt);
+    if (grouped.has(key)) {
+      grouped.get(key).push(event);
+    }
+  });
+
+  return dateKeys.map((key) => {
+    const rows = grouped.get(key) || [];
+    const emergencyCount = rows.filter((row) => String(row.urgency || '').toLowerCase() === 'emergency').length;
+    const emergencyRatePct = rows.length ? Math.round((emergencyCount / rows.length) * 100) : 0;
+    const p95Risk = percentile(rows.map((row) => Number(row.riskScore || 0)), 95);
+    const availabilityPct = rows.length > 0 ? clamp(Math.round(1000 - emergencyRatePct * 1.5) / 10, 96, 100) : 99;
+    const mttrMinutes = clamp(12 + emergencyRatePct * 1.4, 8, 90);
+
+    return {
+      date: key,
+      triageCount: rows.length,
+      emergencyRatePct,
+      availabilityPct,
+      p95Risk,
+      mttrMinutes: Math.round(mttrMinutes),
+    };
+  });
+};
+
+const summarizeSloWindow = (rows) => {
+  if (!rows.length) {
+    return {
+      availabilityPct: 99,
+      emergencyRatePct: 0,
+      p95Risk: 0,
+      mttrMinutes: 0,
+      triageCount: 0,
+    };
+  }
+
+  const avg = (fn) => rows.reduce((acc, row) => acc + fn(row), 0) / rows.length;
+
+  return {
+    availabilityPct: Number(avg((row) => Number(row.availabilityPct || 0)).toFixed(2)),
+    emergencyRatePct: Number(avg((row) => Number(row.emergencyRatePct || 0)).toFixed(2)),
+    p95Risk: Math.max(...rows.map((row) => Number(row.p95Risk || 0))),
+    mttrMinutes: Number(avg((row) => Number(row.mttrMinutes || 0)).toFixed(1)),
+    triageCount: rows.reduce((acc, row) => acc + Number(row.triageCount || 0), 0),
+  };
 };
 
 const verifySignedPayload = (payload, digest, signature) => {
@@ -440,6 +503,24 @@ const ensurePersistence = async () => {
             RevokedAt DATETIME2 NULL
           );
         END;
+
+        IF OBJECT_ID('dbo.InnovationBackupDrills', 'U') IS NULL
+        BEGIN
+          CREATE TABLE dbo.InnovationBackupDrills (
+            DrillId INT IDENTITY(1,1) PRIMARY KEY,
+            StartedAt DATETIME2 NOT NULL,
+            CompletedAt DATETIME2 NOT NULL,
+            Scenario NVARCHAR(120) NOT NULL,
+            RpoTargetMinutes INT NOT NULL,
+            RtoTargetMinutes INT NOT NULL,
+            RpoAchievedMinutes INT NOT NULL,
+            RtoAchievedMinutes INT NOT NULL,
+            ResultStatus NVARCHAR(20) NOT NULL,
+            EvidenceNote NVARCHAR(500) NULL,
+            ExecutedBy NVARCHAR(255) NOT NULL,
+            CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+          );
+        END;
       `);
 
       const latestPolicy = await executeQuery(`
@@ -520,6 +601,42 @@ const ensurePersistence = async () => {
         ORDER BY CreatedAt DESC;
       `);
 
+      const backupRows = await executeQuery(`
+        SELECT TOP 50
+          DrillId,
+          StartedAt,
+          CompletedAt,
+          Scenario,
+          RpoTargetMinutes,
+          RtoTargetMinutes,
+          RpoAchievedMinutes,
+          RtoAchievedMinutes,
+          ResultStatus,
+          EvidenceNote,
+          ExecutedBy,
+          CreatedAt
+        FROM dbo.InnovationBackupDrills
+        ORDER BY CompletedAt DESC;
+      `);
+
+      backupDrillTrail.length = 0;
+      backupRows.recordset.forEach((row) => {
+        backupDrillTrail.push({
+          drillId: Number(row.DrillId),
+          startedAt: new Date(row.StartedAt).toISOString(),
+          completedAt: new Date(row.CompletedAt).toISOString(),
+          scenario: row.Scenario,
+          rpoTargetMinutes: Number(row.RpoTargetMinutes || 0),
+          rtoTargetMinutes: Number(row.RtoTargetMinutes || 0),
+          rpoAchievedMinutes: Number(row.RpoAchievedMinutes || 0),
+          rtoAchievedMinutes: Number(row.RtoAchievedMinutes || 0),
+          resultStatus: row.ResultStatus || 'unknown',
+          evidenceNote: row.EvidenceNote || '',
+          executedBy: row.ExecutedBy || 'unknown',
+          createdAt: new Date(row.CreatedAt).toISOString(),
+        });
+      });
+
       signingKeyRing.clear();
       activeSigningKeyId = '';
       keyRows.recordset.forEach((row) => {
@@ -594,6 +711,33 @@ const persistAuditEvent = async (event) => {
       policyVersion: event.policyVersion,
       generatedAt: event.generatedAt,
       digest: event.digest,
+    }
+  );
+};
+
+const persistBackupDrill = async (drill) => {
+  if (!innovationPersistenceEnabled) return;
+  await ensurePersistence();
+  if (!innovationPersistenceEnabled) return;
+
+  await executeQuery(
+    `
+      INSERT INTO dbo.InnovationBackupDrills
+        (StartedAt, CompletedAt, Scenario, RpoTargetMinutes, RtoTargetMinutes, RpoAchievedMinutes, RtoAchievedMinutes, ResultStatus, EvidenceNote, ExecutedBy)
+      VALUES
+        (@startedAt, @completedAt, @scenario, @rpoTargetMinutes, @rtoTargetMinutes, @rpoAchievedMinutes, @rtoAchievedMinutes, @resultStatus, @evidenceNote, @executedBy);
+    `,
+    {
+      startedAt: drill.startedAt,
+      completedAt: drill.completedAt,
+      scenario: drill.scenario,
+      rpoTargetMinutes: drill.rpoTargetMinutes,
+      rtoTargetMinutes: drill.rtoTargetMinutes,
+      rpoAchievedMinutes: drill.rpoAchievedMinutes,
+      rtoAchievedMinutes: drill.rtoAchievedMinutes,
+      resultStatus: drill.resultStatus,
+      evidenceNote: drill.evidenceNote || null,
+      executedBy: drill.executedBy,
     }
   );
 };
@@ -1238,6 +1382,115 @@ export const getModelOpsReadiness = async (req, res) => {
   }
 };
 
+export const getModelOpsSloTrend = async (req, res) => {
+  try {
+    await ensurePersistence();
+
+    const daily = buildDailySloBuckets(triageAuditTrail, 30);
+    const last7 = daily.slice(-7);
+    const last30 = daily;
+
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        summary: {
+          last7Days: summarizeSloWindow(last7),
+          last30Days: summarizeSloWindow(last30),
+        },
+        daily,
+      },
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to compute SLO trend windows',
+    });
+  }
+};
+
+export const getBackupRestoreDrills = async (req, res) => {
+  try {
+    await ensurePersistence();
+
+    const drills = backupDrillTrail.slice(0, 20);
+    const passCount = drills.filter((item) => String(item.resultStatus).toLowerCase() === 'pass').length;
+    const passRatePct = drills.length ? Math.round((passCount / drills.length) * 100) : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        summary: {
+          totalDrills: drills.length,
+          passRatePct,
+          latestCompletedAt: drills[0]?.completedAt || null,
+        },
+        drills,
+      },
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to load backup/restore drills',
+    });
+  }
+};
+
+export const postBackupRestoreDrill = async (req, res) => {
+  try {
+    await ensurePersistence();
+
+    const scenario = String(req.body?.scenario || 'database-failover').trim().slice(0, 120);
+    const rpoTargetMinutes = clamp(Number(req.body?.rpoTargetMinutes || 15), 1, 1440);
+    const rtoTargetMinutes = clamp(Number(req.body?.rtoTargetMinutes || 60), 1, 2880);
+    const rpoAchievedMinutes = clamp(Number(req.body?.rpoAchievedMinutes || rpoTargetMinutes), 0, 10080);
+    const rtoAchievedMinutes = clamp(Number(req.body?.rtoAchievedMinutes || rtoTargetMinutes), 0, 10080);
+    const evidenceNote = String(req.body?.evidenceNote || '').trim().slice(0, 500);
+    const executedBy = String(req.user?.email || 'unknown').slice(0, 255);
+
+    const startedAt = new Date(req.body?.startedAt || Date.now() - 45 * 60 * 1000).toISOString();
+    const completedAt = new Date(req.body?.completedAt || Date.now()).toISOString();
+
+    const resultStatus = (rpoAchievedMinutes <= rpoTargetMinutes && rtoAchievedMinutes <= rtoTargetMinutes)
+      ? 'pass'
+      : 'gap';
+
+    const record = {
+      drillId: Number(Date.now()),
+      startedAt,
+      completedAt,
+      scenario,
+      rpoTargetMinutes,
+      rtoTargetMinutes,
+      rpoAchievedMinutes,
+      rtoAchievedMinutes,
+      resultStatus,
+      evidenceNote,
+      executedBy,
+      createdAt: new Date().toISOString(),
+    };
+
+    backupDrillTrail.unshift(record);
+    if (backupDrillTrail.length > 100) {
+      backupDrillTrail.length = 100;
+    }
+
+    await persistBackupDrill(record);
+
+    return res.status(201).json({
+      success: true,
+      data: record,
+      message: 'Backup/restore drill recorded successfully',
+    });
+  } catch {
+    return res.status(400).json({
+      success: false,
+      message: 'Unable to record backup/restore drill',
+    });
+  }
+};
+
 export const postPreventiveInsights = async (req, res) => {
   try {
     const { chronicConditions = [], age = 35, activityLevel = 'moderate', adherence = 80 } = req.body || {};
@@ -1293,4 +1546,7 @@ export default {
   getComplianceEvidencePackage,
   postMaintenanceCleanup,
   getModelOpsReadiness,
+  getModelOpsSloTrend,
+  getBackupRestoreDrills,
+  postBackupRestoreDrill,
 };
