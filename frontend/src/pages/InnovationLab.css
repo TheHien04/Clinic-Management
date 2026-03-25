@@ -137,6 +137,117 @@
   color: #932a2a;
 }
 
+.innovation-card-full {
+  grid-column: 1 / -1;
+}
+
+.neo4j-studio-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.neo4j-studio-toolbar input,
+.neo4j-studio-toolbar select {
+  border: 1px solid #bfd6ea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.neo4j-canvas {
+  position: relative;
+  height: 430px;
+  border: 1px dashed #bdd8ed;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f9fcff 0%, #f1f8fd 100%);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.neo4j-canvas-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.neo4j-edge-line {
+  stroke: #4e6f83;
+  stroke-width: 2;
+}
+
+.neo4j-edge-label {
+  fill: #1f4f71;
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.neo4j-node {
+  position: absolute;
+  width: 124px;
+  min-height: 60px;
+  border: 1px solid #8db8d8;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(6, 46, 74, 0.12);
+  padding: 7px 8px 8px;
+  cursor: move;
+  user-select: none;
+}
+
+.neo4j-node-type {
+  font-size: 11px;
+  color: #0f4e7f;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.neo4j-node-label {
+  margin-top: 3px;
+  color: #1f3f56;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo4j-node-remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: #eef5fb;
+  color: #305c7c;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+}
+
+.neo4j-cypher-label {
+  display: inline-block;
+  margin: 4px 0 6px;
+  color: #1d4d72;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.neo4j-cypher-output {
+  width: 100%;
+  border: 1px solid #bfd6ea;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
 @media (max-width: 900px) {
   .innovation-main {
     padding: 16px;

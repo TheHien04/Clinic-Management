@@ -209,4 +209,23 @@ describe('InnovationLab integration', () => {
       expect(screen.getByText(/Cleanup complete: revoked keys removed 2, audit rows removed 11/i)).toBeTruthy();
     });
   });
+
+  it('renders Neo4j studio and generates cypher after adding an edge', async () => {
+    renderInnovationLab();
+
+    await waitFor(() => {
+      expect(screen.getByText('Neo4j Health Graph Studio')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/relation, e.g. has_condition/i), {
+      target: { value: 'ASSIGNED_TO' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /connect/i }));
+    fireEvent.click(screen.getByRole('button', { name: /regenerate cypher/i }));
+
+    const output = screen.getByLabelText(/cypher output/i);
+    expect(output.value).toContain('MERGE');
+    expect(output.value).toContain('ASSIGNED_TO');
+  });
 });

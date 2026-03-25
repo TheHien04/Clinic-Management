@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import Neo4jHealthGraphStudio from '../components/Neo4jHealthGraphStudio';
 import {
   activateInnovationSigningKey,
   getAiAuditTrail,
@@ -436,6 +437,8 @@ export default function InnovationLab() {
               {emergencyFeed.length === 0 && <p>No emergency event received yet.</p>}
             </div>
           </section>
+
+          <Neo4jHealthGraphStudio />
         </div>
       </main>
     </div>
