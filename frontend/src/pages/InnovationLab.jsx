@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import Neo4jHealthGraphStudio from '../components/Neo4jHealthGraphStudio';
@@ -59,6 +59,8 @@ export default function InnovationLab() {
   const [activeKeyId, setActiveKeyId] = useState('');
   const [keyStatus, setKeyStatus] = useState('');
   const [atRestEncryptionEnabled, setAtRestEncryptionEnabled] = useState(false);
+  const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
+  const [autoRotateDays, setAutoRotateDays] = useState(30);
   const [maintenanceStatus, setMaintenanceStatus] = useState('');
 
   const loadSigningKeys = async () => {
@@ -68,10 +70,59 @@ export default function InnovationLab() {
       setSigningKeys(Array.isArray(data.keys) ? data.keys : []);
       setActiveKeyId(data.activeKeyId || '');
       setAtRestEncryptionEnabled(Boolean(data.atRestEncryptionEnabled));
+      setAutoRotateEnabled(Boolean(data.autoRotateEnabled));
+      setAutoRotateDays(Number(data.autoRotateDays || 30));
     } catch (error) {
       setKeyStatus(error?.message || 'Unable to load signing keys');
     }
   };
+
+  const governanceReadiness = useMemo(() => {
+    const controls = [
+      {
+        key: 'policy-versioning',
+        label: 'Policy versioning & change history',
+        passed: Number(policyVersion || 0) >= 1 && policyHistory.length > 0,
+      },
+      {
+        key: 'signed-decisions',
+        label: 'Signed clinical decision packages',
+        passed: Boolean(triageResult?.decisionPackage?.signature || auditTrail.length > 0),
+      },
+      {
+        key: 'security-posture',
+        label: 'Runtime security posture telemetry',
+        passed: Boolean(security?.posture),
+      },
+      {
+        key: 'active-key',
+        label: 'Active signing key lifecycle',
+        passed: Boolean(activeKeyId),
+      },
+      {
+        key: 'key-encryption',
+        label: 'At-rest key encryption',
+        passed: atRestEncryptionEnabled,
+      },
+      {
+        key: 'auto-rotation',
+        label: 'Automated key rotation policy',
+        passed: autoRotateEnabled,
+      },
+    ];
+
+    const passedCount = controls.filter((item) => item.passed).length;
+    const score = Math.round((passedCount / controls.length) * 100);
+    const tier = score >= 85 ? 'world-class' : score >= 65 ? 'advanced' : 'foundational';
+
+    return {
+      controls,
+      score,
+      tier,
+      passedCount,
+      totalCount: controls.length,
+    };
+  }, [activeKeyId, atRestEncryptionEnabled, autoRotateEnabled, auditTrail.length, policyHistory.length, policyVersion, security?.posture, triageResult?.decisionPackage?.signature]);
 
   const rotateKey = async () => {
     setKeyStatus('');
@@ -278,6 +329,25 @@ export default function InnovationLab() {
         <Header />
         <h2>Global Innovation Lab</h2>
         <p>International-grade capabilities for cyber-resilience, AI triage, and preventive health orchestration.</p>
+
+        <section className="innovation-governance-panel" aria-label="AI governance readiness">
+          <div className="innovation-governance-head">
+            <h3>AI Governance Readiness</h3>
+            <span className={`innovation-governance-tier innovation-governance-tier-${governanceReadiness.tier}`}>
+              {governanceReadiness.tier.toUpperCase()} · {governanceReadiness.score}/100
+            </span>
+          </div>
+          <p>
+            Controls passed: {governanceReadiness.passedCount}/{governanceReadiness.totalCount}. Key rotation window: {autoRotateDays} day(s).
+          </p>
+          <div className="innovation-governance-grid">
+            {governanceReadiness.controls.map((control) => (
+              <div key={control.key} className={`innovation-control-chip ${control.passed ? 'is-pass' : 'is-gap'}`}>
+                <b>{control.passed ? 'PASS' : 'GAP'}</b> {control.label}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="innovation-grid">
           <section className="innovation-card">

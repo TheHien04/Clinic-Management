@@ -373,6 +373,67 @@ export default function MedicalRecords() {
     });
   }, [filteredRecords]);
 
+  const qualityReadiness = useMemo(() => {
+    const total = filteredRecords.length;
+    if (!total) {
+      return {
+        completenessPct: 0,
+        freshnessPct: 0,
+        codingCoveragePct: 0,
+        followupPlanPct: 0,
+        readinessScore: 0,
+        readinessTier: 'baseline',
+      };
+    }
+
+    const now = new Date();
+    const freshCutoff = new Date(now);
+    freshCutoff.setDate(freshCutoff.getDate() - 30);
+
+    const completeRows = filteredRecords.filter((record) => (
+      Boolean(record.patient_name)
+      && Boolean(record.doctor_name)
+      && Boolean(record.diagnosis_code)
+      && Boolean(record.follow_up_date)
+      && Boolean(record.scheduled_time || record.created_at)
+    )).length;
+
+    const freshRows = filteredRecords.filter((record) => {
+      const created = new Date(record.created_at || record.scheduled_time || '');
+      return !Number.isNaN(created.getTime()) && created >= freshCutoff;
+    }).length;
+
+    const codedRows = filteredRecords.filter((record) => getIcdGroup(record.diagnosis_code) !== 'Other').length;
+    const followupPlannedRows = filteredRecords.filter((record) => Boolean(record.follow_up_date)).length;
+
+    const completenessPct = Math.round((completeRows / total) * 100);
+    const freshnessPct = Math.round((freshRows / total) * 100);
+    const codingCoveragePct = Math.round((codedRows / total) * 100);
+    const followupPlanPct = Math.round((followupPlannedRows / total) * 100);
+
+    const readinessScore = Math.round(
+      completenessPct * 0.35
+      + freshnessPct * 0.2
+      + codingCoveragePct * 0.25
+      + followupPlanPct * 0.2
+    );
+
+    const readinessTier = readinessScore >= 85
+      ? 'advanced'
+      : readinessScore >= 65
+        ? 'strong'
+        : 'baseline';
+
+    return {
+      completenessPct,
+      freshnessPct,
+      codingCoveragePct,
+      followupPlanPct,
+      readinessScore,
+      readinessTier,
+    };
+  }, [filteredRecords]);
+
   // Handle create/update record
   const handleSaveRecord = async (e) => {
     e.preventDefault();
@@ -590,6 +651,37 @@ export default function MedicalRecords() {
               <div className="mr-kpi-value mr-kpi-warning">{kpi.dueFollowups}</div>
             </div>
           </div>
+
+          <section className="mr-quality-panel" aria-label="Data quality and compliance readiness">
+            <div className="mr-quality-head">
+              <h3>Data Quality & Compliance Readiness</h3>
+              <span className={`mr-quality-tier mr-quality-tier-${qualityReadiness.readinessTier}`}>
+                {qualityReadiness.readinessTier.toUpperCase()} · {qualityReadiness.readinessScore}/100
+              </span>
+            </div>
+            <div className="mr-quality-grid">
+              <article className="mr-quality-card">
+                <p>Record Completeness</p>
+                <strong>{qualityReadiness.completenessPct}%</strong>
+                <small>Required clinical fields available</small>
+              </article>
+              <article className="mr-quality-card">
+                <p>Data Freshness</p>
+                <strong>{qualityReadiness.freshnessPct}%</strong>
+                <small>Records updated in last 30 days</small>
+              </article>
+              <article className="mr-quality-card">
+                <p>ICD Coding Coverage</p>
+                <strong>{qualityReadiness.codingCoveragePct}%</strong>
+                <small>Mapped to recognized ICD groups</small>
+              </article>
+              <article className="mr-quality-card">
+                <p>Follow-up Planning</p>
+                <strong>{qualityReadiness.followupPlanPct}%</strong>
+                <small>Encounters with follow-up strategy</small>
+              </article>
+            </div>
+          </section>
 
           <div className="mr-chart-row">
             <div className="mr-chart-card" ref={trendRef}>

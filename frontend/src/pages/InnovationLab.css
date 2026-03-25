@@ -10,6 +10,92 @@
   min-width: 0;
 }
 
+.innovation-governance-panel {
+  border: 1px solid #cfe3f3;
+  border-radius: 14px;
+  padding: 15px;
+  margin: 14px 0 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f3faff 60%, #eefbf6 100%);
+  box-shadow: 0 8px 22px rgba(8, 70, 102, 0.1);
+}
+
+.innovation-governance-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.innovation-governance-head h3 {
+  margin: 0;
+  color: #0e5279;
+}
+
+.innovation-governance-tier {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.innovation-governance-tier-world-class {
+  background: #e8f8ed;
+  border: 1px solid #b9e2c7;
+  color: #176d3c;
+}
+
+.innovation-governance-tier-advanced {
+  background: #e9f5ff;
+  border: 1px solid #b8d9ee;
+  color: #16597f;
+}
+
+.innovation-governance-tier-foundational {
+  background: #fff6e9;
+  border: 1px solid #efd7ac;
+  color: #915f11;
+}
+
+.innovation-governance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-control-chip {
+  border-radius: 10px;
+  border: 1px solid #d8e7f4;
+  background: #fff;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #2a4f64;
+}
+
+.innovation-control-chip b {
+  margin-right: 6px;
+}
+
+.innovation-control-chip.is-pass {
+  border-color: #b9dfc8;
+  background: #f1fbf4;
+}
+
+.innovation-control-chip.is-pass b {
+  color: #1f7a42;
+}
+
+.innovation-control-chip.is-gap {
+  border-color: #efd3a7;
+  background: #fff9ef;
+}
+
+.innovation-control-chip.is-gap b {
+  color: #9a6110;
+}
+
 .innovation-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
