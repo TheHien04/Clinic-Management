@@ -148,6 +148,74 @@
   margin-bottom: 10px;
 }
 
+.neo4j-summary-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
+}
+
+.neo4j-summary-bar span {
+  border: 1px solid #c5ddf0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #f4f9ff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #295276;
+}
+
+.neo4j-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.neo4j-legend-chip {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+}
+
+.neo4j-legend-chip--patient,
+.neo4j-node--patient {
+  border-color: #8ec1ef;
+  background: #e8f4ff;
+}
+
+.neo4j-legend-chip--condition,
+.neo4j-node--condition {
+  border-color: #f0bd6b;
+  background: #fff3dc;
+}
+
+.neo4j-legend-chip--medication,
+.neo4j-node--medication {
+  border-color: #8fd9b8;
+  background: #e9fbf1;
+}
+
+.neo4j-legend-chip--doctor,
+.neo4j-node--doctor {
+  border-color: #c7b4f3;
+  background: #f2ebff;
+}
+
+.neo4j-legend-chip--appointment,
+.neo4j-node--appointment {
+  border-color: #f0b7c7;
+  background: #fff0f5;
+}
+
+.neo4j-legend-chip--lab,
+.neo4j-node--lab {
+  border-color: #91d3d7;
+  background: #eafcfd;
+}
+
 .neo4j-studio-toolbar input,
 .neo4j-studio-toolbar select {
   border: 1px solid #bfd6ea;
@@ -161,7 +229,11 @@
   height: 430px;
   border: 1px dashed #bdd8ed;
   border-radius: 12px;
-  background: linear-gradient(180deg, #f9fcff 0%, #f1f8fd 100%);
+  background:
+    linear-gradient(90deg, rgba(42, 93, 130, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(42, 93, 130, 0.06) 1px, transparent 1px),
+    linear-gradient(180deg, #f9fcff 0%, #f1f8fd 100%);
+  background-size: 20px 20px, 20px 20px, cover;
   margin-bottom: 12px;
   overflow: hidden;
 }
@@ -176,6 +248,11 @@
 .neo4j-edge-line {
   stroke: #4e6f83;
   stroke-width: 2;
+  opacity: 0.9;
+}
+
+.neo4j-edge-arrow {
+  fill: #4e6f83;
 }
 
 .neo4j-edge-label {
@@ -196,6 +273,16 @@
   padding: 7px 8px 8px;
   cursor: move;
   user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.neo4j-node:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 16px rgba(6, 46, 74, 0.18);
+}
+
+.neo4j-node--selected {
+  box-shadow: 0 0 0 2px #2c76b0, 0 10px 20px rgba(10, 52, 81, 0.2);
 }
 
 .neo4j-node-type {
@@ -227,6 +314,7 @@
   font-size: 11px;
   line-height: 1;
   padding: 0;
+  cursor: pointer;
 }
 
 .neo4j-cypher-label {

@@ -13,6 +13,15 @@ const INITIAL_EDGES = [
   { id: 'edge_2', from: 'patient_1', to: 'medication_1', relation: 'TAKES' },
 ];
 
+const NODE_TYPE_CLASS = {
+  Patient: 'neo4j-node--patient',
+  Condition: 'neo4j-node--condition',
+  Medication: 'neo4j-node--medication',
+  Doctor: 'neo4j-node--doctor',
+  Appointment: 'neo4j-node--appointment',
+  LabResult: 'neo4j-node--lab',
+};
+
 const sanitizeToken = (value) => String(value || '')
   .trim()
   .replace(/[^a-zA-Z0-9_]/g, '_')
@@ -63,6 +72,7 @@ export default function Neo4jHealthGraphStudio() {
   const [edgeRelation, setEdgeRelation] = useState('RELATED_TO');
   const [cypherText, setCypherText] = useState(() => buildCypher(INITIAL_NODES, INITIAL_EDGES));
   const [dragging, setDragging] = useState(null);
+  const [selectedNodeId, setSelectedNodeId] = useState(INITIAL_NODES[0]?.id || '');
 
   const canvasRef = useRef(null);
   const nodeCounterRef = useRef(INITIAL_NODES.length + 1);
@@ -131,6 +141,7 @@ export default function Neo4jHealthGraphStudio() {
 
     if (edgeFrom === nodeId) setEdgeFrom(nextNodes[0]?.id || '');
     if (edgeTo === nodeId) setEdgeTo(nextNodes[1]?.id || nextNodes[0]?.id || '');
+    if (selectedNodeId === nodeId) setSelectedNodeId(nextNodes[0]?.id || '');
     rebuildCypher(nextNodes, nextEdges);
   };
 
@@ -139,11 +150,42 @@ export default function Neo4jHealthGraphStudio() {
     if (!canvasRect) return;
 
     const node = nodeLookup[nodeId];
+    setSelectedNodeId(nodeId);
     setDragging({
       nodeId,
       offsetX: event.clientX - (canvasRect.left + node.x),
       offsetY: event.clientY - (canvasRect.top + node.y),
     });
+  };
+
+  const buildEdgeGeometry = (fromNode, toNode) => {
+    const centerOffsetX = 62;
+    const centerOffsetY = 30;
+    const rawX1 = fromNode.x + centerOffsetX;
+    const rawY1 = fromNode.y + centerOffsetY;
+    const rawX2 = toNode.x + centerOffsetX;
+    const rawY2 = toNode.y + centerOffsetY;
+    const dx = rawX2 - rawX1;
+    const dy = rawY2 - rawY1;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const nodeRadius = 36;
+    const arrowOffset = 12;
+
+    const x1 = rawX1 + nx * nodeRadius;
+    const y1 = rawY1 + ny * nodeRadius;
+    const x2 = rawX2 - nx * (nodeRadius + arrowOffset);
+    const y2 = rawY2 - ny * (nodeRadius + arrowOffset);
+
+    return {
+      x1,
+      y1,
+      x2,
+      y2,
+      labelX: (x1 + x2) / 2,
+      labelY: (y1 + y2) / 2 - 8,
+    };
   };
 
   const onCanvasMouseMove = (event) => {
@@ -182,6 +224,20 @@ export default function Neo4jHealthGraphStudio() {
     <section className="innovation-card innovation-card-full">
       <h3>Neo4j Health Graph Studio</h3>
       <p>Drag nodes to model patient journeys, connect clinical relations, then export Cypher for Neo4j Browser.</p>
+      <div className="neo4j-summary-bar" role="status" aria-label="Graph summary">
+        <span>{nodes.length} nodes</span>
+        <span>{edges.length} relations</span>
+        <span>{selectedNodeId ? `Selected: ${nodeLookup[selectedNodeId]?.label || selectedNodeId}` : 'No selection'}</span>
+      </div>
+
+      <div className="neo4j-legend" aria-label="Node type legend">
+        <span className="neo4j-legend-chip neo4j-legend-chip--patient">Patient</span>
+        <span className="neo4j-legend-chip neo4j-legend-chip--condition">Condition</span>
+        <span className="neo4j-legend-chip neo4j-legend-chip--medication">Medication</span>
+        <span className="neo4j-legend-chip neo4j-legend-chip--doctor">Doctor</span>
+        <span className="neo4j-legend-chip neo4j-legend-chip--appointment">Appointment</span>
+        <span className="neo4j-legend-chip neo4j-legend-chip--lab">LabResult</span>
+      </div>
 
       <div className="neo4j-studio-toolbar">
         <select value={nodeType} onChange={(event) => setNodeType(event.target.value)}>
@@ -225,20 +281,28 @@ export default function Neo4jHealthGraphStudio() {
         onMouseLeave={onMouseUp}
       >
         <svg className="neo4j-canvas-svg" aria-hidden="true">
+          <defs>
+            <marker id="neo4j-arrow" markerWidth="8" markerHeight="8" refX="5.5" refY="4" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,4 L0,8 Z" className="neo4j-edge-arrow" />
+            </marker>
+          </defs>
           {edges.map((edge) => {
             const fromNode = nodeLookup[edge.from];
             const toNode = nodeLookup[edge.to];
             if (!fromNode || !toNode) return null;
-
-            const x1 = fromNode.x + 62;
-            const y1 = fromNode.y + 30;
-            const x2 = toNode.x + 62;
-            const y2 = toNode.y + 30;
+            const geometry = buildEdgeGeometry(fromNode, toNode);
 
             return (
               <g key={edge.id}>
-                <line x1={x1} y1={y1} x2={x2} y2={y2} className="neo4j-edge-line" />
-                <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6} className="neo4j-edge-label">
+                <line
+                  x1={geometry.x1}
+                  y1={geometry.y1}
+                  x2={geometry.x2}
+                  y2={geometry.y2}
+                  className="neo4j-edge-line"
+                  markerEnd="url(#neo4j-arrow)"
+                />
+                <text x={geometry.labelX} y={geometry.labelY} className="neo4j-edge-label">
                   {edge.relation}
                 </text>
               </g>
@@ -249,13 +313,28 @@ export default function Neo4jHealthGraphStudio() {
         {nodes.map((node) => (
           <div
             key={node.id}
-            className="neo4j-node"
+            className={[
+              'neo4j-node',
+              NODE_TYPE_CLASS[node.type] || '',
+              selectedNodeId === node.id ? 'neo4j-node--selected' : '',
+            ].filter(Boolean).join(' ')}
             style={{ left: node.x, top: node.y }}
             onMouseDown={(event) => onNodeMouseDown(event, node.id)}
+            onClick={() => setSelectedNodeId(node.id)}
           >
             <div className="neo4j-node-type">{node.type}</div>
             <div className="neo4j-node-label">{node.label}</div>
-            <button type="button" className="neo4j-node-remove" onClick={() => removeNode(node.id)}>x</button>
+            <button
+              type="button"
+              className="neo4j-node-remove"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                removeNode(node.id);
+              }}
+            >
+              x
+            </button>
           </div>
         ))}
       </div>
