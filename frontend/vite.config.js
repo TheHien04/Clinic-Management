@@ -9,10 +9,11 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
-          if (id.includes('recharts')) return 'vendor-recharts';
-          if (id.includes('antd')) return 'vendor-antd';
-          if (id.includes('react') || id.includes('scheduler')) return 'vendor-react';
-          return 'vendor';
+          if (/node_modules\/recharts\//.test(id)) return 'vendor-recharts';
+          if (/node_modules\/antd\//.test(id)) return 'vendor-antd';
+          if (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom)\//.test(id)) {
+            return 'vendor-react-core';
+          }
         },
       },
     },
