@@ -422,6 +422,13 @@
   margin-bottom: 8px;
 }
 
+.neo4j-action-status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f5f84;
+}
+
 @media (max-width: 900px) {
   .innovation-main {
     padding: 16px;

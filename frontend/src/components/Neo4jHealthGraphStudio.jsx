@@ -73,6 +73,7 @@ export default function Neo4jHealthGraphStudio() {
   const [cypherText, setCypherText] = useState(() => buildCypher(INITIAL_NODES, INITIAL_EDGES));
   const [dragging, setDragging] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState(INITIAL_NODES[0]?.id || '');
+  const [actionStatus, setActionStatus] = useState('');
 
   const canvasRef = useRef(null);
   const nodeCounterRef = useRef(INITIAL_NODES.length + 1);
@@ -87,6 +88,11 @@ export default function Neo4jHealthGraphStudio() {
 
   const rebuildCypher = (nextNodes, nextEdges) => {
     setCypherText(buildCypher(nextNodes, nextEdges));
+  };
+
+  const handleRegenerate = () => {
+    rebuildCypher(nodes, edges);
+    setActionStatus(`Cypher regenerated at ${new Date().toLocaleTimeString()}.`);
   };
 
   const addNode = () => {
@@ -214,9 +220,22 @@ export default function Neo4jHealthGraphStudio() {
 
   const copyCypher = async () => {
     try {
-      await navigator.clipboard.writeText(cypherText);
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(cypherText);
+      } else {
+        const helper = document.createElement('textarea');
+        helper.value = cypherText;
+        helper.setAttribute('readonly', 'true');
+        helper.style.position = 'fixed';
+        helper.style.opacity = '0';
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand('copy');
+        document.body.removeChild(helper);
+      }
+      setActionStatus('Cypher copied to clipboard.');
     } catch {
-      // Ignore clipboard failures; user can copy manually.
+      setActionStatus('Copy failed. Please copy manually from the text box.');
     }
   };
 
@@ -348,9 +367,10 @@ export default function Neo4jHealthGraphStudio() {
         onChange={(event) => setCypherText(event.target.value)}
       />
       <div className="innovation-inline-actions">
-        <button type="button" onClick={() => rebuildCypher(nodes, edges)}>Regenerate Cypher</button>
+        <button type="button" onClick={handleRegenerate}>Regenerate Cypher</button>
         <button type="button" onClick={copyCypher}>Copy Cypher</button>
       </div>
+      {actionStatus && <p className="neo4j-action-status">{actionStatus}</p>}
     </section>
   );
 }
