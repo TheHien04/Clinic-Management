@@ -232,13 +232,24 @@ export default function MedicalRecords() {
       const response = await getMedicalRecordsAPI(params);
       
       if (response.success) {
-        setUsingFallback(false);
-        setRecords(response.data);
-        setPagination(prev => ({
-          ...prev,
-          total: response.pagination.total,
-          totalPages: response.pagination.totalPages
-        }));
+        const hasServerData = Array.isArray(response.data) && response.data.length > 0;
+        const isDefaultView = !params.startDate && !params.endDate && Number(pagination.page) === 1;
+
+        // Keep dashboards populated in demo mode when backend is reachable but unseeded.
+        if (!hasServerData && isDefaultView) {
+          setUsingFallback(true);
+          setRecords(MOCK_RECORDS);
+          setPagination((prev) => ({ ...prev, total: MOCK_RECORDS.length, totalPages: 1 }));
+          setToast({ message: 'No medical records found in backend yet, showing demo dataset.', type: 'warning' });
+        } else {
+          setUsingFallback(false);
+          setRecords(response.data);
+          setPagination(prev => ({
+            ...prev,
+            total: response.pagination.total,
+            totalPages: response.pagination.totalPages
+          }));
+        }
       }
     } catch (error) {
       console.error('Fetch records error:', error);
