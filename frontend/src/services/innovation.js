@@ -77,6 +77,11 @@ export const runInnovationMaintenanceCleanup = async (payload = {}) => {
   return response.data;
 };
 
+export const getInnovationModelOpsReadiness = async () => {
+  const response = await apiClient.get('/innovation/modelops/readiness');
+  return response.data;
+};
+
 export default {
   getSecurityPostureAPI,
   postAiTriageAPI,
@@ -92,4 +97,5 @@ export default {
   revokeInnovationSigningKey,
   getInnovationComplianceEvidence,
   runInnovationMaintenanceCleanup,
+  getInnovationModelOpsReadiness,
 };

@@ -79,6 +79,13 @@ const signPayload = (payload) => {
   return { digest, signature };
 };
 
+const percentile = (values, p) => {
+  if (!Array.isArray(values) || values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((p / 100) * sorted.length)));
+  return sorted[idx];
+};
+
 const verifySignedPayload = (payload, digest, signature) => {
   const expected = signPayload(payload);
   return expected.digest === digest && expected.signature === signature;
@@ -1162,6 +1169,75 @@ export const postMaintenanceCleanup = async (req, res) => {
   }
 };
 
+export const getModelOpsReadiness = async (req, res) => {
+  try {
+    await ensurePersistence();
+
+    const recent = triageAuditTrail.slice(0, 60);
+    const sampleSize = recent.length;
+
+    const riskScores = recent.map((item) => Number(item.riskScore || 0));
+    const meanRisk = sampleSize ? riskScores.reduce((acc, value) => acc + value, 0) / sampleSize : 0;
+    const p95Risk = percentile(riskScores, 95);
+    const emergencyCount = recent.filter((item) => String(item.urgency || '').toLowerCase() === 'emergency').length;
+
+    const emergencyRatePct = sampleSize ? Math.round((emergencyCount / sampleSize) * 100) : 0;
+    const coveragePct = Math.min(100, Math.round((sampleSize / 60) * 100));
+    const signingIntegrityPct = activeSigningKeyId ? 100 : 40;
+    const driftDelta = Math.round(Math.abs(meanRisk - 50));
+    const driftRisk = driftDelta <= 10 ? 'low' : driftDelta <= 20 ? 'medium' : 'high';
+
+    const reliabilityScore = clamp(
+      Math.round(
+        coveragePct * 0.35
+        + signingIntegrityPct * 0.35
+        + (100 - Math.min(100, emergencyRatePct * 2)) * 0.3
+      ),
+      0,
+      100
+    );
+
+    const readinessTier = reliabilityScore >= 85
+      ? 'world-class'
+      : reliabilityScore >= 65
+        ? 'advanced'
+        : 'foundational';
+
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        sampleSize,
+        reliabilityScore,
+        readinessTier,
+        drift: {
+          meanRisk: Math.round(meanRisk),
+          p95Risk,
+          deltaFromBaseline: driftDelta,
+          riskLevel: driftRisk,
+        },
+        coverage: {
+          targetWindow: 60,
+          coveragePct,
+        },
+        safety: {
+          emergencyRatePct,
+          emergencyCount,
+        },
+        signing: {
+          activeKeyId: activeSigningKeyId || null,
+          integrityPct: signingIntegrityPct,
+        },
+      },
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to compute model operations readiness',
+    });
+  }
+};
+
 export const postPreventiveInsights = async (req, res) => {
   try {
     const { chronicConditions = [], age = 35, activityLevel = 'moderate', adherence = 80 } = req.body || {};
@@ -1216,4 +1292,5 @@ export default {
   postRevokeSigningKey,
   getComplianceEvidencePackage,
   postMaintenanceCleanup,
+  getModelOpsReadiness,
 };

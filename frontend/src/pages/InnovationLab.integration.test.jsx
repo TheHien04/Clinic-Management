@@ -16,6 +16,7 @@ const rotateInnovationSigningKeyMock = vi.fn();
 const activateInnovationSigningKeyMock = vi.fn();
 const revokeInnovationSigningKeyMock = vi.fn();
 const runInnovationMaintenanceCleanupMock = vi.fn();
+const getInnovationModelOpsReadinessMock = vi.fn();
 const subscribeInnovationEmergencyMock = vi.fn();
 
 vi.mock('../components/Sidebar', () => ({
@@ -40,6 +41,7 @@ vi.mock('../services/innovation', () => ({
   activateInnovationSigningKey: (...args) => activateInnovationSigningKeyMock(...args),
   revokeInnovationSigningKey: (...args) => revokeInnovationSigningKeyMock(...args),
   runInnovationMaintenanceCleanup: (...args) => runInnovationMaintenanceCleanupMock(...args),
+  getInnovationModelOpsReadiness: (...args) => getInnovationModelOpsReadinessMock(...args),
   getInnovationComplianceEvidence: vi.fn(),
 }));
 
@@ -79,6 +81,27 @@ describe('InnovationLab integration', () => {
       ],
       activeKeyId: 'key-active-1',
       atRestEncryptionEnabled: true,
+    });
+    getInnovationModelOpsReadinessMock.mockResolvedValue({
+      readinessTier: 'advanced',
+      reliabilityScore: 78,
+      sampleSize: 24,
+      generatedAt: '2026-01-15T09:00:00.000Z',
+      coverage: {
+        targetWindow: 60,
+        coveragePct: 40,
+      },
+      drift: {
+        riskLevel: 'low',
+        deltaFromBaseline: 8,
+        p95Risk: 88,
+      },
+      safety: {
+        emergencyRatePct: 12,
+      },
+      signing: {
+        integrityPct: 100,
+      },
     });
     rotateInnovationSigningKeyMock.mockResolvedValue({
       keys: [
@@ -155,9 +178,11 @@ describe('InnovationLab integration', () => {
       expect(screen.getByText('Global Innovation Lab')).toBeTruthy();
       expect(screen.getByText('AI Policy Engine Governance')).toBeTruthy();
       expect(screen.getByText('Signing Key Lifecycle')).toBeTruthy();
+      expect(screen.getByText('ModelOps Reliability Monitor')).toBeTruthy();
       expect(screen.getByText('Active key: key-active-1')).toBeTruthy();
       expect(screen.getByText('Current policy version: 3')).toBeTruthy();
       expect(screen.getByText(/At-rest encryption: ENABLED/i)).toBeTruthy();
+      expect(screen.getByText(/Coverage: 40%/i)).toBeTruthy();
     });
   });
 

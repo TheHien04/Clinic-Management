@@ -8,6 +8,7 @@ import {
   getAiTriagePolicy,
   getAiTriagePolicyHistory,
   getInnovationComplianceEvidence,
+  getInnovationModelOpsReadiness,
   getInnovationSigningKeys,
   getSecurityPostureAPI,
   postAiTriageAPI,
@@ -62,6 +63,8 @@ export default function InnovationLab() {
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
   const [autoRotateDays, setAutoRotateDays] = useState(30);
   const [maintenanceStatus, setMaintenanceStatus] = useState('');
+  const [modelOps, setModelOps] = useState(null);
+  const [modelOpsError, setModelOpsError] = useState('');
 
   const loadSigningKeys = async () => {
     setKeyStatus('');
@@ -226,6 +229,7 @@ export default function InnovationLab() {
     loadPolicy();
     loadAuditTrail();
     loadSigningKeys();
+    loadModelOps();
 
     const unsubscribe = subscribeInnovationEmergency((event) => {
       setEmergencyFeed((prev) => [event, ...prev].slice(0, 20));
@@ -243,6 +247,16 @@ export default function InnovationLab() {
       setSecurity(data);
     } catch (error) {
       setSecurityError(error?.message || 'Unable to fetch security posture');
+    }
+  };
+
+  const loadModelOps = async () => {
+    setModelOpsError('');
+    try {
+      const data = await getInnovationModelOpsReadiness();
+      setModelOps(data);
+    } catch (error) {
+      setModelOpsError(error?.message || 'Unable to fetch ModelOps readiness');
     }
   };
 
@@ -493,6 +507,24 @@ export default function InnovationLab() {
               ))}
               {signingKeys.length === 0 && <p>No signing key metadata available.</p>}
             </div>
+          </section>
+
+          <section className="innovation-card">
+            <h3>ModelOps Reliability Monitor</h3>
+            <button type="button" onClick={loadModelOps}>Refresh ModelOps</button>
+            {modelOpsError && <p>{modelOpsError}</p>}
+            {modelOps && (
+              <div>
+                <div className="innovation-kpi">{modelOps.readinessTier?.toUpperCase()} ({modelOps.reliabilityScore})</div>
+                <p>Sample window: {modelOps.sampleSize} / {modelOps.coverage?.targetWindow}</p>
+                <p>Coverage: {modelOps.coverage?.coveragePct}%</p>
+                <p>Drift risk: {modelOps.drift?.riskLevel} (delta {modelOps.drift?.deltaFromBaseline})</p>
+                <p>P95 risk: {modelOps.drift?.p95Risk}</p>
+                <p>Emergency rate: {modelOps.safety?.emergencyRatePct}%</p>
+                <p>Signing integrity: {modelOps.signing?.integrityPct}%</p>
+                <p>Generated at: {modelOps.generatedAt}</p>
+              </div>
+            )}
           </section>
 
           <section className="innovation-card innovation-emergency-card">

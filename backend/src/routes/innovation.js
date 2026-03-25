@@ -9,6 +9,7 @@ import {
   getAiTriagePolicy,
   getAiTriagePolicyHistory,
   getComplianceEvidencePackage,
+  getModelOpsReadiness,
   postActivateSigningKey,
   getSigningKeys,
   getSecurityPosture,
@@ -38,6 +39,7 @@ router.post('/ai-triage/signing-keys/rotate', postRotateSigningKey);
 router.post('/ai-triage/signing-keys/:keyId/activate', postActivateSigningKey);
 router.post('/ai-triage/signing-keys/:keyId/revoke', postRevokeSigningKey);
 router.get('/compliance/evidence', getComplianceEvidencePackage);
+router.get('/modelops/readiness', getModelOpsReadiness);
 router.post('/maintenance/cleanup', postMaintenanceCleanup);
 
 export default router;
