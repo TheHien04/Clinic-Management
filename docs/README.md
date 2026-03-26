@@ -99,6 +99,7 @@ creating a system that is both **academically rigorous** and **practically relev
 
 - Latest readiness report: `docs/RELEASE_READINESS_2026-03-17.md`
 - Project changelog: `docs/CHANGELOG.md`
+- Sustainability playbook: `docs/SUSTAINABILITY_PLAYBOOK.md`
 
 ---
 

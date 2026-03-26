@@ -1,6 +1,10 @@
 {
   "name": "clinic-management-workspace",
   "private": true,
+  "engines": {
+    "node": ">=20 <23",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev:ports": "lsof -nP -iTCP:5173 -sTCP:LISTEN || true && lsof -nP -iTCP:5055 -sTCP:LISTEN || true",
     "predev:stable": "bash ./scripts/dev-stable-clean.sh",
