@@ -9,6 +9,7 @@ import { jwtConfig } from '../config/jwt.js';
 import { getAllowedOrigins } from '../config/env.js';
 
 let io = null;
+const HANDOVER_PRIVILEGED_ROLES = ['admin', 'manager', 'supervisor'];
 
 const normalizeSeverity = (value) => {
   const severity = String(value || '').toLowerCase();
@@ -272,6 +273,25 @@ export const emitInnovationEmergency = (event) => {
         at,
       },
     ],
+  });
+};
+
+/**
+ * Emit operations handover saved event.
+ * @param {Object} handover - Saved SBAR handover payload
+ */
+export const emitOperationsHandoverSaved = (handover) => {
+  if (!io) return;
+
+  const payload = {
+    handoverId: Number(handover?.handoverId || Date.now()),
+    authoredBy: String(handover?.authoredBy || 'unknown'),
+    savedAt: handover?.savedAt || new Date().toISOString(),
+    summary: 'SBAR handover saved. Open secure handover panel for full details.',
+  };
+
+  HANDOVER_PRIVILEGED_ROLES.forEach((role) => {
+    io.to(`role:${role}`).emit('operations:handover:saved', payload);
   });
 };
 

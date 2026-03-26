@@ -8,7 +8,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { jwtConfig } from '../config/jwt.js';
 import { executeQuery } from '../config/database.js';
-import { emitInnovationEmergency } from '../socket/index.js';
+import { emitInnovationEmergency, emitOperationsHandoverSaved } from '../socket/index.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -60,8 +60,12 @@ const triagePolicyHistory = [
 
 const triageAuditTrail = [];
 const backupDrillTrail = [];
+const handoverTrail = [];
+const handoverAuditTrail = [];
 let innovationPersistenceEnabled = true;
 let innovationPersistenceInitPromise = null;
+let innovationPersistenceLastError = null;
+let innovationPersistenceLastHealthyAt = null;
 
 const getSigningSecret = () => String(process.env.INNOVATION_SIGNING_KEY || jwtConfig.secret || 'innovation-signing-dev-secret');
 
@@ -85,6 +89,14 @@ const percentile = (values, p) => {
   const sorted = [...values].sort((a, b) => a - b);
   const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((p / 100) * sorted.length)));
   return sorted[idx];
+};
+
+const csvEscape = (value) => {
+  const raw = String(value ?? '');
+  if (/[",\n]/.test(raw)) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
 };
 
 const toIsoDate = (value) => {
@@ -521,6 +533,36 @@ const ensurePersistence = async () => {
             CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
           );
         END;
+
+        IF OBJECT_ID('dbo.InnovationOperationsHandovers', 'U') IS NULL
+        BEGIN
+          CREATE TABLE dbo.InnovationOperationsHandovers (
+            HandoverId BIGINT NOT NULL PRIMARY KEY,
+            Situation NVARCHAR(1200) NOT NULL,
+            Background NVARCHAR(1200) NOT NULL,
+            Assessment NVARCHAR(1200) NOT NULL,
+            Recommendation NVARCHAR(1200) NOT NULL,
+            AuthoredBy NVARCHAR(255) NOT NULL,
+            SavedAt DATETIME2 NOT NULL,
+            CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+          );
+        END;
+
+        IF OBJECT_ID('dbo.InnovationOperationsHandoverAudits', 'U') IS NULL
+        BEGIN
+          CREATE TABLE dbo.InnovationOperationsHandoverAudits (
+            AuditId BIGINT NOT NULL PRIMARY KEY,
+            EventType NVARCHAR(40) NOT NULL,
+            Actor NVARCHAR(255) NOT NULL,
+            FiltersJson NVARCHAR(1200) NULL,
+            HandoverId BIGINT NULL,
+            LoggedAt DATETIME2 NOT NULL,
+            CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+          );
+
+          CREATE INDEX IX_InnovationOperationsHandoverAudits_LoggedAt
+            ON dbo.InnovationOperationsHandoverAudits (LoggedAt DESC);
+        END;
       `);
 
       const latestPolicy = await executeQuery(`
@@ -619,6 +661,31 @@ const ensurePersistence = async () => {
         ORDER BY CompletedAt DESC;
       `);
 
+      const handoverRows = await executeQuery(`
+        SELECT TOP 80
+          HandoverId,
+          Situation,
+          Background,
+          Assessment,
+          Recommendation,
+          AuthoredBy,
+          SavedAt
+        FROM dbo.InnovationOperationsHandovers
+        ORDER BY SavedAt DESC;
+      `);
+
+      const handoverAuditRows = await executeQuery(`
+        SELECT TOP 150
+          AuditId,
+          EventType,
+          Actor,
+          FiltersJson,
+          HandoverId,
+          LoggedAt
+        FROM dbo.InnovationOperationsHandoverAudits
+        ORDER BY LoggedAt DESC;
+      `);
+
       backupDrillTrail.length = 0;
       backupRows.recordset.forEach((row) => {
         backupDrillTrail.push({
@@ -634,6 +701,31 @@ const ensurePersistence = async () => {
           evidenceNote: row.EvidenceNote || '',
           executedBy: row.ExecutedBy || 'unknown',
           createdAt: new Date(row.CreatedAt).toISOString(),
+        });
+      });
+
+      handoverTrail.length = 0;
+      handoverRows.recordset.forEach((row) => {
+        handoverTrail.push({
+          handoverId: Number(row.HandoverId),
+          situation: String(row.Situation || ''),
+          background: String(row.Background || ''),
+          assessment: String(row.Assessment || ''),
+          recommendation: String(row.Recommendation || ''),
+          authoredBy: String(row.AuthoredBy || 'unknown'),
+          savedAt: new Date(row.SavedAt).toISOString(),
+        });
+      });
+
+      handoverAuditTrail.length = 0;
+      handoverAuditRows.recordset.forEach((row) => {
+        handoverAuditTrail.push({
+          auditId: Number(row.AuditId),
+          eventType: String(row.EventType || 'unknown'),
+          actor: String(row.Actor || 'unknown'),
+          filtersJson: String(row.FiltersJson || ''),
+          handoverId: row.HandoverId ? Number(row.HandoverId) : null,
+          loggedAt: new Date(row.LoggedAt).toISOString(),
         });
       });
 
@@ -665,15 +757,38 @@ const ensurePersistence = async () => {
       }
 
       signingKeysLoadedFromPersistence = true;
+      innovationPersistenceLastHealthyAt = new Date().toISOString();
+      innovationPersistenceLastError = null;
     })().catch((error) => {
       innovationPersistenceEnabled = false;
       innovationPersistenceInitPromise = null;
+      innovationPersistenceLastError = String(error?.message || 'unknown persistence error');
       console.warn('Innovation persistence fallback to in-memory mode:', error.message);
     });
   }
 
   await innovationPersistenceInitPromise;
 };
+
+const createPersistenceUnavailableError = () => {
+  const error = new Error('Innovation persistence is unavailable');
+  error.code = 'INNOVATION_PERSISTENCE_UNAVAILABLE';
+  return error;
+};
+
+const ensureOperationsPersistenceReady = async () => {
+  await ensurePersistence();
+  if (!innovationPersistenceEnabled) {
+    throw createPersistenceUnavailableError();
+  }
+};
+
+export const getInnovationPersistenceStatus = () => ({
+  enabled: innovationPersistenceEnabled,
+  mode: innovationPersistenceEnabled ? 'sql-persistent' : 'memory-degraded',
+  lastError: innovationPersistenceLastError,
+  lastHealthyAt: innovationPersistenceLastHealthyAt,
+});
 
 const persistPolicyVersion = async ({ version, policy, changedAt, changedBy, note }) => {
   if (!innovationPersistenceEnabled) return;
@@ -738,6 +853,53 @@ const persistBackupDrill = async (drill) => {
       resultStatus: drill.resultStatus,
       evidenceNote: drill.evidenceNote || null,
       executedBy: drill.executedBy,
+    }
+  );
+};
+
+const persistOperationsHandover = async (handover) => {
+  if (!innovationPersistenceEnabled) return;
+  await ensurePersistence();
+  if (!innovationPersistenceEnabled) return;
+
+  await executeQuery(
+    `
+      INSERT INTO dbo.InnovationOperationsHandovers
+        (HandoverId, Situation, Background, Assessment, Recommendation, AuthoredBy, SavedAt)
+      VALUES
+        (@handoverId, @situation, @background, @assessment, @recommendation, @authoredBy, @savedAt);
+    `,
+    {
+      handoverId: handover.handoverId,
+      situation: handover.situation,
+      background: handover.background,
+      assessment: handover.assessment,
+      recommendation: handover.recommendation,
+      authoredBy: handover.authoredBy,
+      savedAt: handover.savedAt,
+    }
+  );
+};
+
+const persistOperationsHandoverAudit = async (auditEvent) => {
+  if (!innovationPersistenceEnabled) return;
+  await ensurePersistence();
+  if (!innovationPersistenceEnabled) return;
+
+  await executeQuery(
+    `
+      INSERT INTO dbo.InnovationOperationsHandoverAudits
+        (AuditId, EventType, Actor, FiltersJson, HandoverId, LoggedAt)
+      VALUES
+        (@auditId, @eventType, @actor, @filtersJson, @handoverId, @loggedAt);
+    `,
+    {
+      auditId: auditEvent.auditId,
+      eventType: auditEvent.eventType,
+      actor: auditEvent.actor,
+      filtersJson: auditEvent.filtersJson || null,
+      handoverId: auditEvent.handoverId || null,
+      loggedAt: auditEvent.loggedAt,
     }
   );
 };
@@ -1491,6 +1653,341 @@ export const postBackupRestoreDrill = async (req, res) => {
   }
 };
 
+export const getOperationsBedCensus = async (req, res) => {
+  try {
+    const censusQuery = `
+      SELECT
+        COUNT(a.AppointmentID) AS TotalAppointments,
+        COUNT(DISTINCT a.PatientID) AS UniquePatients,
+        SUM(CASE WHEN LOWER(ISNULL(a.Status, '')) LIKE 'pending%' THEN 1 ELSE 0 END) AS PendingCount,
+        SUM(CASE WHEN LOWER(ISNULL(a.Status, '')) LIKE 'cancel%' THEN 1 ELSE 0 END) AS CancelledCount,
+        SUM(CASE WHEN LOWER(ISNULL(a.Status, '')) LIKE 'complete%' THEN 1 ELSE 0 END) AS CompletedCount
+      FROM Appointments a;
+    `;
+
+    const doctorsQuery = `
+      SELECT
+        COUNT(DoctorID) AS TotalDoctors,
+        SUM(CASE WHEN LOWER(ISNULL(Status, 'active')) = 'onleave' THEN 1 ELSE 0 END) AS OnLeaveDoctors
+      FROM Doctors;
+    `;
+
+    const [censusResult, doctorResult] = await Promise.all([
+      executeQuery(censusQuery, {}),
+      executeQuery(doctorsQuery, {}),
+    ]);
+
+    const censusRow = censusResult?.recordset?.[0] || {};
+    const doctorRow = doctorResult?.recordset?.[0] || {};
+
+    const pendingCount = Number(censusRow.PendingCount || 0);
+    const cancelledCount = Number(censusRow.CancelledCount || 0);
+    const totalAppointments = Number(censusRow.TotalAppointments || 0);
+    const uniquePatients = Number(censusRow.UniquePatients || 0);
+    const completedCount = Number(censusRow.CompletedCount || 0);
+    const totalDoctors = Math.max(1, Number(doctorRow.TotalDoctors || 1));
+    const onLeaveDoctors = Number(doctorRow.OnLeaveDoctors || 0);
+
+    const wards = [
+      {
+        id: 'ward-ed',
+        ward: 'Emergency Ward',
+        occupied: Math.min(26, Math.round(9 + pendingCount * 1.7 + cancelledCount * 0.5)),
+        total: 26,
+      },
+      {
+        id: 'ward-icu',
+        ward: 'ICU',
+        occupied: Math.min(12, Math.round(5 + Math.max(0, pendingCount - completedCount) * 0.45)),
+        total: 12,
+      },
+      {
+        id: 'ward-inpatient',
+        ward: 'Inpatient Ward',
+        occupied: Math.min(42, Math.round(16 + uniquePatients * 0.55)),
+        total: 42,
+      },
+      {
+        id: 'ward-surgery',
+        ward: 'Post-Op Recovery',
+        occupied: Math.min(16, Math.round(5 + (totalAppointments / totalDoctors) + onLeaveDoctors * 0.8)),
+        total: 16,
+      },
+    ].map((row) => {
+      const usage = Math.round((row.occupied / row.total) * 100);
+      return {
+        ...row,
+        usage,
+        level: usage >= 88 ? 'high' : usage >= 75 ? 'medium' : 'normal',
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        source: 'database-derived',
+        wards,
+      },
+    });
+  } catch {
+    const fallbackWards = [
+      { id: 'ward-ed', ward: 'Emergency Ward', occupied: 17, total: 26 },
+      { id: 'ward-icu', ward: 'ICU', occupied: 8, total: 12 },
+      { id: 'ward-inpatient', ward: 'Inpatient Ward', occupied: 30, total: 42 },
+      { id: 'ward-surgery', ward: 'Post-Op Recovery', occupied: 10, total: 16 },
+    ].map((row) => {
+      const usage = Math.round((row.occupied / row.total) * 100);
+      return {
+        ...row,
+        usage,
+        level: usage >= 88 ? 'high' : usage >= 75 ? 'medium' : 'normal',
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        source: 'fallback-derived',
+        wards: fallbackWards,
+      },
+    });
+  }
+};
+
+export const getOperationsHandover = async (req, res) => {
+  try {
+    await ensureOperationsPersistenceReady();
+    const limit = clamp(Number(req.query?.limit || 12), 1, 50);
+    const page = clamp(Number(req.query?.page || 1), 1, 100000);
+    const authoredBy = String(req.query?.authoredBy || '').trim().toLowerCase();
+    const fromDateRaw = String(req.query?.fromDate || '').trim();
+    const toDateRaw = String(req.query?.toDate || '').trim();
+
+    const fromMs = fromDateRaw ? new Date(fromDateRaw).getTime() : null;
+    const toMs = toDateRaw ? new Date(toDateRaw).getTime() : null;
+
+    const filtered = handoverTrail.filter((item) => {
+      const authoredOk = authoredBy ? String(item.authoredBy || '').toLowerCase().includes(authoredBy) : true;
+      if (!authoredOk) return false;
+
+      const savedMs = new Date(item.savedAt).getTime();
+      if (fromMs && !Number.isNaN(fromMs) && savedMs < fromMs) return false;
+      if (toMs && !Number.isNaN(toMs)) {
+        const toEndMs = toMs + (24 * 60 * 60 * 1000) - 1;
+        if (savedMs > toEndMs) return false;
+      }
+
+      return true;
+    });
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const offset = (page - 1) * limit;
+    const history = filtered.slice(offset, offset + limit);
+
+    const auditEvent = {
+      auditId: Number(Date.now()),
+      eventType: 'history_query',
+      actor: String(req.user?.email || 'unknown'),
+      filtersJson: JSON.stringify({ authoredBy: authoredBy || null, fromDate: fromDateRaw || null, toDate: toDateRaw || null, limit, page }),
+      handoverId: null,
+      loggedAt: new Date().toISOString(),
+    };
+    handoverAuditTrail.unshift(auditEvent);
+    if (handoverAuditTrail.length > 200) {
+      handoverAuditTrail.length = 200;
+    }
+    await persistOperationsHandoverAudit(auditEvent);
+
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        history,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      },
+    });
+  } catch (error) {
+    if (error?.code === 'INNOVATION_PERSISTENCE_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        message: 'Handover history is temporarily unavailable while persistence is degraded',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to load handover history',
+    });
+  }
+};
+
+export const getOperationsHandoverAudits = async (req, res) => {
+  try {
+    await ensureOperationsPersistenceReady();
+    const limit = clamp(Number(req.query?.limit || 20), 1, 100);
+    return res.json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        audits: handoverAuditTrail.slice(0, limit),
+      },
+    });
+  } catch (error) {
+    if (error?.code === 'INNOVATION_PERSISTENCE_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        message: 'Handover audit trail is temporarily unavailable while persistence is degraded',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to load handover audits',
+    });
+  }
+};
+
+export const getOperationsHandoverCsv = async (req, res) => {
+  try {
+    await ensureOperationsPersistenceReady();
+
+    const limit = clamp(Number(req.query?.limit || 200), 1, 1000);
+    const rows = handoverTrail.slice(0, limit);
+    const header = ['HandoverId', 'SavedAt', 'AuthoredBy', 'Situation', 'Background', 'Assessment', 'Recommendation'];
+    const lines = rows.map((row) => [
+      row.handoverId,
+      row.savedAt,
+      row.authoredBy,
+      row.situation,
+      row.background,
+      row.assessment,
+      row.recommendation,
+    ].map(csvEscape).join(','));
+
+    const csv = [header.join(','), ...lines].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="handover-history-${Date.now()}.csv"`);
+    return res.status(200).send(csv);
+  } catch (error) {
+    if (error?.code === 'INNOVATION_PERSISTENCE_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        message: 'Handover export is unavailable while persistence is degraded',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to export handover history',
+    });
+  }
+};
+
+export const getOperationsHandoverAuditsCsv = async (req, res) => {
+  try {
+    await ensureOperationsPersistenceReady();
+
+    const limit = clamp(Number(req.query?.limit || 300), 1, 2000);
+    const rows = handoverAuditTrail.slice(0, limit);
+    const header = ['AuditId', 'LoggedAt', 'EventType', 'Actor', 'HandoverId', 'FiltersJson'];
+    const lines = rows.map((row) => [
+      row.auditId,
+      row.loggedAt,
+      row.eventType,
+      row.actor,
+      row.handoverId || '',
+      row.filtersJson || '',
+    ].map(csvEscape).join(','));
+
+    const csv = [header.join(','), ...lines].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="handover-audits-${Date.now()}.csv"`);
+    return res.status(200).send(csv);
+  } catch (error) {
+    if (error?.code === 'INNOVATION_PERSISTENCE_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        message: 'Handover audit export is unavailable while persistence is degraded',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to export handover audits',
+    });
+  }
+};
+
+export const postOperationsHandover = async (req, res) => {
+  try {
+    await ensureOperationsPersistenceReady();
+    const situation = String(req.body?.situation || '').trim().slice(0, 1200);
+    const background = String(req.body?.background || '').trim().slice(0, 1200);
+    const assessment = String(req.body?.assessment || '').trim().slice(0, 1200);
+    const recommendation = String(req.body?.recommendation || '').trim().slice(0, 1200);
+
+    if (!situation || !background || !assessment || !recommendation) {
+      return res.status(400).json({
+        success: false,
+        message: 'SBAR fields are required',
+      });
+    }
+
+    const record = {
+      handoverId: Number(Date.now()),
+      situation,
+      background,
+      assessment,
+      recommendation,
+      authoredBy: String(req.user?.email || 'unknown').slice(0, 255),
+      savedAt: new Date().toISOString(),
+    };
+
+    await persistOperationsHandover(record);
+    const saveAuditEvent = {
+      auditId: Number(Date.now()) + 1,
+      eventType: 'handover_save',
+      actor: record.authoredBy,
+      filtersJson: null,
+      handoverId: record.handoverId,
+      loggedAt: record.savedAt,
+    };
+    await persistOperationsHandoverAudit(saveAuditEvent);
+
+    handoverTrail.unshift(record);
+    if (handoverTrail.length > 80) {
+      handoverTrail.length = 80;
+    }
+
+    handoverAuditTrail.unshift(saveAuditEvent);
+    if (handoverAuditTrail.length > 200) {
+      handoverAuditTrail.length = 200;
+    }
+    emitOperationsHandoverSaved(record);
+
+    return res.status(201).json({
+      success: true,
+      data: record,
+      message: 'SBAR handover saved',
+    });
+  } catch (error) {
+    if (error?.code === 'INNOVATION_PERSISTENCE_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        message: 'Unable to save SBAR handover while persistence is degraded',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to save SBAR handover',
+    });
+  }
+};
+
 export const postPreventiveInsights = async (req, res) => {
   try {
     const { chronicConditions = [], age = 35, activityLevel = 'moderate', adherence = 80 } = req.body || {};
@@ -1549,4 +2046,11 @@ export default {
   getModelOpsSloTrend,
   getBackupRestoreDrills,
   postBackupRestoreDrill,
+  getInnovationPersistenceStatus,
+  getOperationsBedCensus,
+  getOperationsHandover,
+  getOperationsHandoverAudits,
+  getOperationsHandoverCsv,
+  getOperationsHandoverAuditsCsv,
+  postOperationsHandover,
 };

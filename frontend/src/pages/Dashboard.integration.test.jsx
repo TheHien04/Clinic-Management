@@ -3,6 +3,28 @@ import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Dashboard from './Dashboard';
 
+vi.mock('../services/appointments', () => ({
+  getAppointmentsAPI: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../services/patients', () => ({
+  getPatientsAPI: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../services/doctors', () => ({
+  getDoctorsAPI: vi.fn().mockResolvedValue([]),
+  getDoctorsIntelligenceAPI: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock('../services/innovation', () => ({
+  getInnovationBedCensus: vi.fn().mockResolvedValue(null),
+  getInnovationHandoverHistory: vi.fn().mockResolvedValue(null),
+  getInnovationHandoverAudits: vi.fn().mockResolvedValue(null),
+  downloadInnovationHandoverCsv: vi.fn().mockResolvedValue(undefined),
+  downloadInnovationHandoverAuditsCsv: vi.fn().mockResolvedValue(undefined),
+  saveInnovationHandover: vi.fn().mockResolvedValue({ savedAt: '2026-03-26T00:00:00.000Z' }),
+}));
+
 vi.mock('../components/Sidebar', () => ({
   default: () => <div>Sidebar</div>,
 }));
@@ -29,12 +51,16 @@ vi.mock('recharts', () => {
 });
 
 describe('Dashboard integration', () => {
-  it('renders health ops insights and warning signals', () => {
+  it('renders health ops insights and warning signals', async () => {
     render(
       <MemoryRouter>
         <Dashboard />
       </MemoryRouter>
     );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(screen.getByText('Health Operations Command Center')).toBeTruthy();
     expect(screen.getByText('AI Health Ops Insights')).toBeTruthy();
@@ -44,6 +70,12 @@ describe('Dashboard integration', () => {
     expect(screen.getByText('Mission Control Queue')).toBeTruthy();
     expect(screen.getByText('Live Operations Feed')).toBeTruthy();
     expect(screen.getByText('Autopilot Scenarios')).toBeTruthy();
+    expect(screen.getByText('Shift Command Center')).toBeTruthy();
+    expect(screen.getByText('Patient Journey Board')).toBeTruthy();
+    expect(screen.getByText('ER & ICU Operations')).toBeTruthy();
+    expect(screen.getByText('Bed Management Board')).toBeTruthy();
+    expect(screen.getByText('SBAR Shift Handover')).toBeTruthy();
+    expect(screen.getByText('Recent Handover History')).toBeTruthy();
   });
 
   it('ingests realtime ops alert event into live feed', async () => {

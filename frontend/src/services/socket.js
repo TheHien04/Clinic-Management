@@ -209,6 +209,27 @@ export const subscribeInnovationEmergency = (callback) => {
 };
 
 /**
+ * Subscribe to operations handover saved events.
+ * @param {Function} callback - Callback function
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeOperationsHandoverSaved = (callback) => {
+  if (!socket || typeof callback !== 'function') {
+    return () => {};
+  }
+
+  const onOperationsHandoverSaved = (payload) => {
+    callback(payload);
+  };
+
+  socket.on('operations:handover:saved', onOperationsHandoverSaved);
+
+  return () => {
+    socket.off('operations:handover:saved', onOperationsHandoverSaved);
+  };
+};
+
+/**
  * Remove event listener
  * @param {string} event - Event name
  * @param {Function} callback - Callback function
@@ -233,5 +254,6 @@ export default {
   onBroadcast,
   subscribeOpsAlerts,
   subscribeInnovationEmergency,
+  subscribeOperationsHandoverSaved,
   offEvent,
 };

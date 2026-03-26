@@ -14,9 +14,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import configurations
-import { getPool, closePool } from './config/database.js';
+import { getPool, closePool, executeQuery } from './config/database.js';
 import { connectMongo, closeMongoClient, getMongoStatus } from './config/nosql.js';
 import { getAllowedOrigins, validateProductionEnv } from './config/env.js';
+import { getInnovationPersistenceStatus } from './controllers/innovationController.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -99,7 +100,16 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/innovation', innovationRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let sqlServer = 'disconnected';
+
+  try {
+    await executeQuery('SELECT 1 AS healthCheck;', {});
+    sqlServer = 'connected';
+  } catch {
+    sqlServer = 'degraded';
+  }
+
   res.json({
     success: true,
     message: 'Server is running',
@@ -107,9 +117,10 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
     databases: {
-      sqlServer: 'connected',
+      sqlServer,
       mongo: getMongoStatus(),
     },
+    innovationPersistence: getInnovationPersistenceStatus(),
   });
 });
 

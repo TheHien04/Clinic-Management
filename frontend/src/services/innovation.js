@@ -97,6 +97,58 @@ export const recordInnovationBackupDrill = async (payload) => {
   return response.data;
 };
 
+export const getInnovationBedCensus = async () => {
+  const response = await apiClient.get('/innovation/operations/bed-census');
+  return response.data;
+};
+
+export const getInnovationHandoverHistory = async (limit = 12, filters = {}) => {
+  const response = await apiClient.get('/innovation/operations/handover', {
+    params: {
+      limit,
+      ...(filters || {}),
+    },
+  });
+  return response.data;
+};
+
+export const getInnovationHandoverAudits = async (limit = 20) => {
+  const response = await apiClient.get('/innovation/operations/handover/audits', {
+    params: { limit },
+  });
+  return response.data;
+};
+
+const downloadBlob = (blob, filename) => {
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = href;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(href);
+};
+
+export const downloadInnovationHandoverCsv = async () => {
+  const blob = await apiClient.get('/innovation/operations/handover/export.csv', {
+    responseType: 'blob',
+  });
+  downloadBlob(blob, `handover-history-${Date.now()}.csv`);
+};
+
+export const downloadInnovationHandoverAuditsCsv = async () => {
+  const blob = await apiClient.get('/innovation/operations/handover/audits/export.csv', {
+    responseType: 'blob',
+  });
+  downloadBlob(blob, `handover-audits-${Date.now()}.csv`);
+};
+
+export const saveInnovationHandover = async (payload) => {
+  const response = await apiClient.post('/innovation/operations/handover', payload);
+  return response.data;
+};
+
 export default {
   getSecurityPostureAPI,
   postAiTriageAPI,
@@ -116,4 +168,10 @@ export default {
   getInnovationModelOpsSloTrend,
   getInnovationBackupDrills,
   recordInnovationBackupDrill,
+  getInnovationBedCensus,
+  getInnovationHandoverHistory,
+  getInnovationHandoverAudits,
+  downloadInnovationHandoverCsv,
+  downloadInnovationHandoverAuditsCsv,
+  saveInnovationHandover,
 };

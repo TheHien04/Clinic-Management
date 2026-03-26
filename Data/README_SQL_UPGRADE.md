@@ -20,6 +20,7 @@ Bo script moi nay da duoc canh theo schema backend thuc te va da tuong thich voi
 ✅ **create_views.sql** - 7 views cho reporting & dashboards  
 ✅ **create_procedures.sql** - 6 stored procedures với pagination  
 ✅ **create_audit_trail.sql** - Audit trail system hoàn chỉnh  
+✅ **create_innovation_operations_tables.sql** - Persist SBAR handover operations data  
 
 ---
 
@@ -88,6 +89,18 @@ sqlcmd -S localhost -U sa -P YourPassword -i Data/create_audit_trail.sql
 - ✅ 4 triggers track changes (patients, appointments, employees, accounts)
 - ✅ Password masking trong audit log
 - ✅ 3 stored procedures cho audit reports
+
+### **Bước 6: Chạy bảng Innovation Operations (cho Dashboard hospital mode)**
+```bash
+# SSMS: File > Open > File... > Data/create_innovation_operations_tables.sql > Execute
+sqlcmd -S localhost -U sa -P YourPassword -i Data/create_innovation_operations_tables.sql
+```
+
+**Tác dụng:**
+- ✅ Lưu SBAR handover lên SQL thay vì chỉ memory
+- ✅ Hỗ trợ truy vết lịch sử bàn giao ca trực
+- ✅ Audit log cho truy vấn/lưu handover (compliance trace)
+- ✅ Tăng độ ổn định cho Dashboard vận hành bệnh viện
 
 ---
 
