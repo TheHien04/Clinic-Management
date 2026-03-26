@@ -32,6 +32,7 @@ import specialtyRoutes from './routes/specialties.js';
 import salaryRoutes from './routes/salaries.js';
 import reportRoutes from './routes/reports.js';
 import innovationRoutes from './routes/innovation.js';
+import notificationRoutes from './routes/notifications.js';
 
 // Import middleware
 import { notFound, errorHandler } from './middleware/errorHandler.js';
@@ -98,6 +99,7 @@ app.use('/api/specialties', specialtyRoutes);
 app.use('/api/salaries', salaryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/innovation', innovationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
@@ -136,7 +138,8 @@ app.get('/', (req, res) => {
       appointments: '/api/appointments',
       patients: '/api/patients',
       doctors: '/api/doctors',
-      upload: '/api/upload'
+      upload: '/api/upload',
+      notifications: '/api/notifications'
     }
   });
 });

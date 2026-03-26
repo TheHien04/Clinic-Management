@@ -11,6 +11,7 @@ export const ROUTES = {
   REPORTS: 'reports',
   MEDICAL_RECORDS: 'medical-records',
   INNOVATION_LAB: 'innovation-lab',
+  NOTIFICATIONS: 'notifications',
   HOSPITAL_PORTAL: 'hospital-portal',
   PATIENT_PORTAL: 'patient-portal',
   // Đã xoá các route staff, clinics, specialties, salaries
@@ -22,7 +23,7 @@ export const API_ENDPOINTS = {
   LOGIN: '/auth/login',
   REGISTER: '/auth/register',
   LOGOUT: '/auth/logout',
-  VERIFY_OTP: '/auth/verify-otp',
+  VERIFY_MFA: '/auth/mfa/verify',
   REFRESH_TOKEN: '/auth/refresh',
   
   // Appointments
@@ -49,6 +50,14 @@ export const API_ENDPOINTS = {
   INNOVATION_SECURITY_POSTURE: '/innovation/security/posture',
   INNOVATION_AI_TRIAGE: '/innovation/ai/triage',
   INNOVATION_PREVENTIVE_INSIGHTS: '/innovation/health/preventive-insights',
+
+  // Notifications
+  NOTIFICATION_INBOX: '/notifications/inbox',
+  NOTIFICATION_CREATE: '/notifications',
+  NOTIFICATION_MARK_READ: (id) => `/notifications/${id}/read`,
+  NOTIFICATION_DELIVERY_QUEUE: '/notifications/delivery/queue',
+  NOTIFICATION_DELIVERY_PROCESS: '/notifications/delivery/process',
+  NOTIFICATION_DEAD_LETTER: '/notifications/delivery/dead-letter',
 };
 
 // Local Storage Keys

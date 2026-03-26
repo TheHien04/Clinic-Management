@@ -5,9 +5,11 @@ import Login from './Login';
 import { STORAGE_KEYS, ROUTES } from '../constants';
 
 const loginAPIMock = vi.fn();
+const verifyMfaAPIMock = vi.fn();
 
 vi.mock('../services/auth', () => ({
   loginAPI: (...args) => loginAPIMock(...args),
+  verifyMfaAPI: (...args) => verifyMfaAPIMock(...args),
 }));
 
 const renderLoginFlow = () => {
@@ -83,5 +85,51 @@ describe('Login integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Invalid credentials')).toBeTruthy();
     });
+  });
+
+  it('completes privileged login with MFA challenge', async () => {
+    loginAPIMock.mockResolvedValue({
+      mfaRequired: true,
+      mfaTicket: 'mfa-ticket-1',
+      mfaHint: 'Development OTP: 123456',
+    });
+    verifyMfaAPIMock.mockResolvedValue({
+      user: {
+        id: 1,
+        email: 'admin@clinic.com',
+        name: 'Admin User',
+        role: 'admin',
+      },
+      token: 'jwt-token-mfa',
+      refreshToken: 'refresh-token-mfa',
+    });
+
+    renderLoginFlow();
+
+    fireEvent.change(screen.getByPlaceholderText('Username'), {
+      target: { value: 'admin@clinic.com' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Password'), {
+      target: { value: '123456' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Enter 6-digit MFA code')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Enter 6-digit MFA code'), {
+      target: { value: '123456' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /verify & continue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Dashboard Page')).toBeTruthy();
+    });
+
+    expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBe('jwt-token-mfa');
+    expect(localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)).toBe('refresh-token-mfa');
   });
 });

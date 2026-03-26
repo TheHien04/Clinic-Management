@@ -8,6 +8,45 @@ import { generateToken, generateRefreshToken, verifyRefreshToken } from '../util
 import { isValidEmail, validatePassword, sanitizeInput } from '../utils/validators.js';
 import { cleanupAuthAuditEvents, recordAuthAuditEvent } from '../utils/securityAudit.js';
 
+const MFA_REQUIRED_ROLES = new Set(['admin', 'manager', 'supervisor']);
+const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const mfaChallengeStore = new Map();
+
+const issueMfaChallenge = (user) => {
+  const ticket = `mfa-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS).toISOString();
+
+  mfaChallengeStore.set(ticket, {
+    ticket,
+    code,
+    expiresAt,
+    accountId: user.AccountID,
+    email: user.Email,
+    role: user.Role,
+    name: user.FullName,
+  });
+
+  return {
+    ticket,
+    code,
+    expiresAt,
+  };
+};
+
+const popMfaChallenge = (ticket) => {
+  const challenge = mfaChallengeStore.get(ticket);
+  if (!challenge) return null;
+
+  if (new Date(challenge.expiresAt).getTime() < Date.now()) {
+    mfaChallengeStore.delete(ticket);
+    return null;
+  }
+
+  mfaChallengeStore.delete(ticket);
+  return challenge;
+};
+
 const getClientMeta = (req) => {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   const clientIp = forwarded || req.ip || req.socket?.remoteAddress || 'unknown';
@@ -220,6 +259,31 @@ export const login = async (req, res) => {
       });
     }
 
+    if (MFA_REQUIRED_ROLES.has(String(user.Role || '').toLowerCase())) {
+      const challenge = issueMfaChallenge(user);
+
+      auditAuthEvent(req, {
+        eventType: 'login_mfa_challenge',
+        eventStatus: 'success',
+        email: user.Email,
+        accountId: user.AccountID,
+        reason: 'mfa_required_for_privileged_role',
+      });
+
+      return res.status(202).json({
+        success: true,
+        message: 'MFA verification required',
+        data: {
+          mfaRequired: true,
+          mfaTicket: challenge.ticket,
+          mfaExpiresAt: challenge.expiresAt,
+          mfaHint: process.env.NODE_ENV === 'production'
+            ? 'Use your authenticator code to continue.'
+            : `Development OTP: ${challenge.code}`,
+        },
+      });
+    }
+
     // Generate tokens
     const token = generateToken({
       id: user.AccountID,
@@ -264,6 +328,99 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during login'
+    });
+  }
+};
+
+/**
+ * Verify MFA challenge and complete login
+ * POST /api/auth/mfa/verify
+ */
+export const verifyMfa = async (req, res) => {
+  try {
+    const { mfaTicket, otpCode } = req.body || {};
+
+    if (!mfaTicket || !otpCode) {
+      auditAuthEvent(req, {
+        eventType: 'login_mfa_verify',
+        eventStatus: 'failed',
+        reason: 'missing_ticket_or_code',
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'mfaTicket and otpCode are required',
+      });
+    }
+
+    const challenge = popMfaChallenge(String(mfaTicket));
+    if (!challenge) {
+      auditAuthEvent(req, {
+        eventType: 'login_mfa_verify',
+        eventStatus: 'failed',
+        reason: 'ticket_invalid_or_expired',
+      });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired MFA ticket',
+      });
+    }
+
+    if (String(challenge.code) !== String(otpCode).trim()) {
+      auditAuthEvent(req, {
+        eventType: 'login_mfa_verify',
+        eventStatus: 'failed',
+        email: challenge.email,
+        accountId: challenge.accountId,
+        reason: 'otp_mismatch',
+      });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid OTP code',
+      });
+    }
+
+    const token = generateToken({
+      id: challenge.accountId,
+      email: challenge.email,
+      role: challenge.role,
+    });
+
+    const refreshToken = generateRefreshToken({
+      id: challenge.accountId,
+    });
+
+    auditAuthEvent(req, {
+      eventType: 'login_mfa_verify',
+      eventStatus: 'success',
+      email: challenge.email,
+      accountId: challenge.accountId,
+      reason: 'mfa_verified',
+    });
+
+    return res.json({
+      success: true,
+      message: 'MFA verification successful',
+      data: {
+        user: {
+          id: challenge.accountId,
+          email: challenge.email,
+          name: challenge.name,
+          role: challenge.role,
+        },
+        token,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    console.error('Verify MFA error:', error);
+    auditAuthEvent(req, {
+      eventType: 'login_mfa_verify',
+      eventStatus: 'error',
+      reason: 'server_error',
+    });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during MFA verification',
     });
   }
 };
@@ -643,6 +800,7 @@ export default {
   register,
   login,
   refreshToken,
+  verifyMfa,
   getMe,
   getSecurityAudit,
   cleanupSecurityAudit,

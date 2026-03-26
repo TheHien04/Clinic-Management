@@ -86,8 +86,31 @@ const runFlow = async () => {
     'auth/login',
   );
 
-  const accessToken = loginBody?.data?.token;
-  const refreshToken = loginBody?.data?.refreshToken;
+  let accessToken = loginBody?.data?.token;
+  let refreshToken = loginBody?.data?.refreshToken;
+
+  if (loginBody?.data?.mfaRequired && loginBody?.data?.mfaTicket) {
+    const otpCode = String(loginBody?.data?.mfaHint || '').replace('Development OTP:', '').trim();
+
+    if (!otpCode) {
+      throw new Error('MFA challenge returned without usable OTP hint in smoke test mode');
+    }
+
+    const verifyBody = await ensureOk(
+      await fetch(`${API_BASE_URL}/auth/mfa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mfaTicket: loginBody.data.mfaTicket,
+          otpCode,
+        }),
+      }),
+      'auth/mfa/verify',
+    );
+
+    accessToken = verifyBody?.data?.token;
+    refreshToken = verifyBody?.data?.refreshToken;
+  }
 
   if (!accessToken || !refreshToken) {
     throw new Error('Missing accessToken/refreshToken in login response');

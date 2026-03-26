@@ -12,6 +12,7 @@ const Doctors = lazy(() => import('./pages/Doctors'));
 const Reports = lazy(() => import('./pages/Reports'));
 const MedicalRecords = lazy(() => import('./pages/MedicalRecords'));
 const InnovationLab = lazy(() => import('./pages/InnovationLab'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const HospitalPortal = lazy(() => import('./pages/HospitalPortal'));
 const PatientPortal = lazy(() => import('./pages/PatientPortal'));
 const Login = lazy(() => import('./pages/Login'));
@@ -25,6 +26,7 @@ const TITLE_BY_PATH = {
   [`/${ROUTES.REPORTS}`]: 'Reports | Clinic Management',
   [`/${ROUTES.MEDICAL_RECORDS}`]: 'Medical Records | Clinic Management',
   [`/${ROUTES.INNOVATION_LAB}`]: 'Innovation Lab | Clinic Management',
+  [`/${ROUTES.NOTIFICATIONS}`]: 'Notifications | Clinic Management',
   [`/${ROUTES.HOSPITAL_PORTAL}`]: 'Hospital Portal | Clinic Management',
   [`/${ROUTES.PATIENT_PORTAL}`]: 'Patient Portal | Clinic Management',
   [`/${ROUTES.LOGIN}`]: 'Login | Clinic Management',
@@ -114,6 +116,14 @@ export default function AppRouter() {
                   <InnovationLab />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path={`/${ROUTES.NOTIFICATIONS}`}
+              element={
+                <ProtectedRoute>
+                  <Notifications />
+                </ProtectedRoute>
+              }
             />
             <Route
               path={`/${ROUTES.HOSPITAL_PORTAL}`}

@@ -6,6 +6,7 @@ import express from 'express';
 import {
 	register,
 	login,
+	verifyMfa,
 	refreshToken,
 	getMe,
 	getSecurityAudit,
@@ -22,6 +23,7 @@ const router = express.Router();
 // Public routes
 router.post('/register', authRateLimiter, register);
 router.post('/login', authRateLimiter, loginRateLimiter, login);
+router.post('/mfa/verify', authRateLimiter, loginRateLimiter, verifyMfa);
 router.post('/refresh', authRateLimiter, refreshToken);
 router.get('/csrf-token', authRateLimiter, issueCsrfToken);
 

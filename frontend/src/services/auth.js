@@ -50,9 +50,24 @@ export const refreshTokenAPI = async (refreshToken) => {
   return response.data;
 };
 
+/**
+ * Verify MFA challenge during login
+ * @param {string} mfaTicket - MFA ticket returned from login endpoint
+ * @param {string} otpCode - One time code
+ * @returns {Promise<Object>} User data and tokens
+ */
+export const verifyMfaAPI = async (mfaTicket, otpCode) => {
+  const response = await apiClient.post(API_ENDPOINTS.VERIFY_MFA, {
+    mfaTicket,
+    otpCode,
+  });
+  return response.data;
+};
+
 export default {
   loginAPI,
   registerAPI,
   getMeAPI,
   refreshTokenAPI,
+  verifyMfaAPI,
 };
