@@ -2,11 +2,11 @@
 
 **Project:** Clinic Management System  
 **Đánh giá theo:** Tiêu chuẩn CSDL nâng cao + Qui trình phần mềm quốc tế  
-**Ngày đánh giá:** 24/02/2026
+**Ngày đánh giá:** 26/03/2026
 
 ---
 
-## 📊 Tổng Quan Điểm (8.5/10) - XẾP LOẠI: GIỎI
+## 📊 Tổng Quan Điểm (8.9/10) - XẾP LOẠI: GIỎI
 
 | Tiêu chí | Điểm | Chuẩn Quốc Tế | Ghi chú |
 |----------|------|----------------|---------|
@@ -15,7 +15,7 @@
 | **Frontend Architecture** | 8.5/10 | ✅ Tốt | React, Router, State Management |
 | **Security** | 7.5/10 | ⚠️ Khá | Cần thêm HTTPS, Rate Limiting |
 | **Performance** | 7/10 | ⚠️ Khá | Thiếu Indexing, Caching |
-| **Testing** | 4/10 | ❌ Yếu | Chưa có Unit/E2E tests |
+| **Testing** | 8.2/10 | ✅ Tốt | Có unit/integration tests + QA release gates |
 | **Documentation** | 9/10 | ✅ Tốt | README, API docs, Setup guide |
 | **Scalability** | 7/10 | ⚠️ Khá | Cần Load Balancer, Clustering |
 
@@ -112,18 +112,20 @@ employees (emp_id, fullname, employee_type)
 
 ## ⚠️ ĐIỂM YẾU (Chưa Đạt Chuẩn Quốc Tế)
 
-### 1. ❌ Testing (4/10) - YẾU NHẤT
+### 1. ✅ Testing (8.2/10) - ĐÃ CẢI THIỆN RÕ RỆT
 
-**Thiếu:**
-- ❌ Unit tests (Jest/Vitest)
-- ❌ Integration tests
-- ❌ E2E tests (Playwright/Cypress)
-- ❌ API tests (Postman/Newman)
-- ❌ Load testing (K6/Artillery)
-- ❌ Test coverage reports
-- ❌ CI/CD pipelines
+**Đã có:**
+- ✅ Backend unit tests (Vitest) cho middleware và utility trọng yếu
+- ✅ Frontend integration tests cho các trang chính (Dashboard, Doctors, Patients, Reports, ...)
+- ✅ Release quality gate (`qa:release`) bao gồm lint + test + build + backend smoke test
+- ✅ Security gate (`qa:security`) kiểm tra critical vulnerabilities
 
-**Impact:** Không đảm bảo code stability khi deploy production.
+**Còn thiếu:**
+- ⚠️ E2E workflow tests (Playwright/Cypress)
+- ⚠️ Load/performance tests (K6/Artillery)
+- ⚠️ Contract/API regression suite chuyên biệt
+
+**Impact hiện tại:** Đã bảo vệ tốt hơn khi deploy production, nhưng cần E2E/load test để đạt chuẩn enterprise cao hơn.
 
 ### 2. ⚠️ Performance (7/10) - CẦN CẢI THIỆN
 
