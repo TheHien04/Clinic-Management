@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
 import AvatarIcon from './AvatarIcon';
-import { FaClinicMedical, FaCog, FaQuestionCircle, FaCommentDots, FaCircle, FaUserCircle, FaPalette, FaLock, FaUpload, FaBook, FaEnvelope, FaStar, FaAngleDoubleLeft, FaAngleDoubleRight, FaGlobeEurope } from 'react-icons/fa';
+import { FaClinicMedical, FaCog, FaQuestionCircle, FaCommentDots, FaCircle, FaUserCircle, FaPalette, FaLock, FaUpload, FaBook, FaEnvelope, FaStar, FaAngleDoubleLeft, FaAngleDoubleRight, FaGlobeEurope, FaUserInjured } from 'react-icons/fa';
 import { ROUTES, STORAGE_KEYS } from '../constants';
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { key: ROUTES.MEDICAL_RECORDS, label: 'Medical Records', icon: <FaClinicMedical style={{marginRight:8}}/> },
   { key: ROUTES.INNOVATION_LAB, label: 'Innovation Lab', icon: <FaClinicMedical style={{marginRight:8}}/> },
   { key: ROUTES.HOSPITAL_PORTAL, label: 'Hospital Portal', icon: <FaGlobeEurope style={{marginRight:8}}/> },
+  { key: ROUTES.PATIENT_PORTAL, label: 'Patient Portal', icon: <FaUserInjured style={{marginRight:8}}/> },
 ];
 
 const shortcuts = [

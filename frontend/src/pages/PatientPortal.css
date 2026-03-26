@@ -1,0 +1,249 @@
+.patient-portal-content {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.patient-portal-hero {
+  border-radius: 18px;
+  border: 1px solid rgba(157, 196, 208, 0.45);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(39, 155, 184, 0.2), transparent 37%),
+    radial-gradient(circle at 100% 100%, rgba(51, 172, 139, 0.17), transparent 42%),
+    linear-gradient(130deg, #f4fcff, #eef8f8);
+  padding: 22px;
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 12px;
+}
+
+.patient-portal-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 800;
+  color: #0f607c;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.patient-portal-hero h1 {
+  margin: 7px 0 0;
+  color: #0b4b63;
+  font-size: 34px;
+}
+
+.patient-portal-subtitle {
+  margin: 10px 0 0;
+  color: #325f70;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.patient-source-label {
+  margin: 10px 0 0;
+  color: #145b75;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.patient-quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: flex-end;
+}
+
+.patient-btn {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.patient-btn-solid {
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, #0b7c93, #0c6278);
+  cursor: pointer;
+}
+
+.patient-btn-outline {
+  border: 1.4px solid #0d6a82;
+  color: #0d6a82;
+  background: #edf8fb;
+}
+
+.patient-status-note {
+  border-radius: 10px;
+  border: 1px solid rgba(115, 173, 187, 0.46);
+  background: #eef8fa;
+  color: #0f6178;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.patient-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.patient-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.patient-grid-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.patient-card {
+  border-radius: 14px;
+  border: 1px solid rgba(169, 204, 212, 0.48);
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(19, 96, 111, 0.08);
+  padding: 18px;
+}
+
+.patient-card h3 {
+  margin: 0 0 10px;
+  color: #0d5a71;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.patient-kv-list,
+.patient-list,
+.patient-record-list,
+.patient-bullet-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.patient-kv-list li,
+.patient-list li,
+.patient-record-list li {
+  border: 1px solid rgba(179, 208, 214, 0.48);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.patient-kv-list span {
+  color: #3f6978;
+  font-weight: 700;
+}
+
+.patient-kv-list b,
+.patient-list b,
+.patient-record-list b {
+  color: #0f556b;
+}
+
+.patient-list p,
+.patient-record-list p {
+  margin: 4px 0 0;
+  color: #466c7b;
+  font-size: 13px;
+}
+
+.patient-list-meta {
+  text-align: right;
+}
+
+.patient-list-meta span {
+  display: block;
+  color: #335e70;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.patient-chip {
+  display: inline-flex;
+  margin-top: 6px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.patient-confirmed,
+.patient-completed {
+  background: #e8f8ef;
+  color: #1d7e4c;
+}
+
+.patient-pending {
+  background: #fff4dc;
+  color: #9a6a00;
+}
+
+.patient-cancelled {
+  background: #fde9e9;
+  color: #a23e3e;
+}
+
+.patient-prescription {
+  margin: 0;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(165, 203, 212, 0.45);
+  background: #f4fbfd;
+  color: #295b6d;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.patient-bullet-list {
+  margin-top: 10px;
+  list-style: disc;
+  padding-left: 18px;
+  color: #355f6f;
+}
+
+.patient-footnote {
+  margin: 10px 0 0;
+  color: #547988;
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .patient-grid-three {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .patient-portal-hero,
+  .patient-grid-three,
+  .patient-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-quick-actions {
+    justify-content: flex-start;
+  }
+
+  .patient-portal-hero h1 {
+    font-size: 28px;
+  }
+}
