@@ -5,10 +5,14 @@ import {
   FaFileDownload,
   FaFileMedical,
   FaFileInvoiceDollar,
+  FaGlobe,
   FaHeartbeat,
+  FaLanguage,
   FaPills,
   FaNotesMedical,
+  FaQrcode,
   FaRegBell,
+  FaRobot,
   FaPhoneAlt,
   FaStethoscope,
   FaSyringe,
@@ -63,6 +67,12 @@ const carePlanTimeline = [
   { id: 'cp-4', stage: 'Lab panel reassessment', target: '2026-04-29', owner: 'Lab services' },
 ];
 
+const digitalBiomarkers = [
+  { label: 'Cardio stress index', value: '24 / 100', trend: 'Stable low risk' },
+  { label: 'Sleep recovery quality', value: '82%', trend: 'Improving over 14 days' },
+  { label: 'Medication adherence', value: '93%', trend: 'Excellent consistency' },
+];
+
 const normalizeRecord = (row, index) => ({
   id: row.id || row.RecordID || `MR-${index + 1}`,
   diagnosisCode: String(row.diagnosisCode || row.DiagnosisCode || 'N/A'),
@@ -95,6 +105,7 @@ export default function PatientPortal() {
   const [consentStatus, setConsentStatus] = useState('');
   const [privacyStatus, setPrivacyStatus] = useState('');
   const [refillStatus, setRefillStatus] = useState('');
+  const [innovationStatus, setInnovationStatus] = useState('');
   const [notificationPrefs, setNotificationPrefs] = useState({
     sms: true,
     email: true,
@@ -193,6 +204,13 @@ export default function PatientPortal() {
 
   const latestPrescription = recentRecords[0]?.prescription || 'No active prescription';
 
+  const aiCareScore = useMemo(() => {
+    const upcomingCount = upcomingAppointments.length;
+    const recordCount = recentRecords.length;
+    const baseline = 72;
+    return Math.min(98, baseline + upcomingCount * 3 + recordCount * 2);
+  }, [recentRecords, upcomingAppointments]);
+
   const handleTelehealthJoin = () => {
     setTelehealthStatus('Telehealth room request submitted. Care coordinator will confirm in-app within 2 minutes.');
   };
@@ -244,6 +262,26 @@ export default function PatientPortal() {
 
   const requestMedicationRefill = () => {
     setRefillStatus('Medication refill request sent to pharmacy verification queue.');
+  };
+
+  const generateAICareSummary = () => {
+    setInnovationStatus('AI preventive summary generated and routed to your care team dashboard.');
+  };
+
+  const requestTravelLetter = () => {
+    setInnovationStatus('International travel medical letter request submitted for physician sign-off.');
+  };
+
+  const copyEmergencyPass = async () => {
+    const passCode = `ICE-${patientProfile.memberId}-GLOBAL-24`;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(passCode);
+      }
+      setInnovationStatus('Emergency smart pass copied. You can share it with emergency responders.');
+    } catch {
+      setInnovationStatus(`Emergency smart pass: ${passCode}`);
+    }
   };
 
   return (
@@ -407,6 +445,49 @@ export default function PatientPortal() {
               {privacyStatus && <p className="patient-inline-status">{privacyStatus}</p>}
             </article>
           </section>
+
+          <section className="patient-grid patient-grid-three">
+            <article className="patient-card">
+              <h3><FaRobot /> AI Preventive Health Navigator</h3>
+              <div className="patient-ai-score-wrap">
+                <span className="patient-ai-score-label">Personal Care Score</span>
+                <b className="patient-ai-score-value">{aiCareScore}/100</b>
+              </div>
+              <ul className="patient-biomarker-list">
+                {digitalBiomarkers.map((item) => (
+                  <li key={item.label}>
+                    <div>
+                      <b>{item.label}</b>
+                      <p>{item.trend}</p>
+                    </div>
+                    <span>{item.value}</span>
+                  </li>
+                ))}
+              </ul>
+              <button className="patient-action-btn" onClick={generateAICareSummary}>Generate AI Care Summary</button>
+            </article>
+
+            <article className="patient-card">
+              <h3><FaGlobe /> International Care Concierge</h3>
+              <ul className="patient-kv-list">
+                <li><span>Preferred Language</span><b><FaLanguage /> English / Vietnamese</b></li>
+                <li><span>Cross-border Insurance</span><b>Verified for outpatient claims</b></li>
+                <li><span>Travel Clearance</span><b>Eligible for physician approval</b></li>
+              </ul>
+              <button className="patient-action-btn" onClick={requestTravelLetter}>Request Travel Medical Letter</button>
+            </article>
+
+            <article className="patient-card">
+              <h3><FaQrcode /> Emergency Smart Pass</h3>
+              <div className="patient-emergency-pass">
+                <p>Instant ICE profile with blood group, allergies, and primary doctor handoff channel.</p>
+                <code>{`ICE-${patientProfile.memberId}-GLOBAL-24`}</code>
+              </div>
+              <button className="patient-action-btn" onClick={copyEmergencyPass}>Copy Emergency Pass</button>
+            </article>
+          </section>
+
+          {innovationStatus && <div className="patient-status-note">{innovationStatus}</div>}
         </main>
       </div>
     </div>

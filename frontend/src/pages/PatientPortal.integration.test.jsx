@@ -37,6 +37,9 @@ describe('PatientPortal integration', () => {
     expect(screen.getByText('Vaccination Card')).toBeTruthy();
     expect(screen.getByText('Consent Center')).toBeTruthy();
     expect(screen.getByText('Privacy & Data Rights')).toBeTruthy();
+    expect(screen.getByText('AI Preventive Health Navigator')).toBeTruthy();
+    expect(screen.getByText('International Care Concierge')).toBeTruthy();
+    expect(screen.getByText('Emergency Smart Pass')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Join Telehealth/i })).toBeTruthy();
   });
 });
