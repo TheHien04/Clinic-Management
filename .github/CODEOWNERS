@@ -1,0 +1,16 @@
+# Default ownership
+* @TheHien04
+
+# Backend domain owners
+/backend/ @TheHien04
+
+# Frontend domain owners
+/frontend/ @TheHien04
+
+# Data and migration owners
+/Data/ @TheHien04
+/backend/migrations/ @TheHien04
+
+# CI/CD and governance owners
+/.github/ @TheHien04
+/docs/ @TheHien04
