@@ -33,6 +33,10 @@ describe('PatientPortal integration', () => {
     expect(screen.getByText('Latest Clinical Records')).toBeTruthy();
     expect(screen.getByText('Prescription & Follow-up')).toBeTruthy();
     expect(screen.getByText('Billing & Insurance')).toBeTruthy();
+    expect(screen.getByText('Medication Refill & Care Plan')).toBeTruthy();
+    expect(screen.getByText('Vaccination Card')).toBeTruthy();
+    expect(screen.getByText('Consent Center')).toBeTruthy();
+    expect(screen.getByText('Privacy & Data Rights')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Join Telehealth/i })).toBeTruthy();
   });
 });

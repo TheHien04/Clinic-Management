@@ -1,12 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FaCalendarCheck,
+  FaCheckCircle,
+  FaFileDownload,
   FaFileMedical,
   FaFileInvoiceDollar,
   FaHeartbeat,
+  FaPills,
   FaNotesMedical,
+  FaRegBell,
   FaPhoneAlt,
   FaStethoscope,
+  FaSyringe,
+  FaTrashAlt,
+  FaUserShield,
   FaVideo,
 } from 'react-icons/fa';
 import Sidebar from '../components/Sidebar';
@@ -43,6 +50,19 @@ const fallbackRecords = [
   },
 ];
 
+const vaccinationCard = [
+  { name: 'Influenza', lastDose: '2025-10-04', due: '2026-10-04', status: 'Up to date' },
+  { name: 'Hepatitis B Booster', lastDose: '2024-06-13', due: '2026-06-13', status: 'Due in 3 months' },
+  { name: 'COVID-19 Booster', lastDose: '2025-11-29', due: '2026-11-29', status: 'Up to date' },
+];
+
+const carePlanTimeline = [
+  { id: 'cp-1', stage: 'Remote intake completed', target: 'Done', owner: 'Nurse coordinator' },
+  { id: 'cp-2', stage: 'Cardiology review and ECG follow-up', target: '2026-04-08', owner: 'Dr. Elena Rossi' },
+  { id: 'cp-3', stage: 'Lifestyle coaching touchpoint', target: '2026-04-12', owner: 'Digital care coach' },
+  { id: 'cp-4', stage: 'Lab panel reassessment', target: '2026-04-29', owner: 'Lab services' },
+];
+
 const normalizeRecord = (row, index) => ({
   id: row.id || row.RecordID || `MR-${index + 1}`,
   diagnosisCode: String(row.diagnosisCode || row.DiagnosisCode || 'N/A'),
@@ -72,6 +92,20 @@ export default function PatientPortal() {
   const [records, setRecords] = useState([]);
   const [sourceLabel, setSourceLabel] = useState('Loading patient timeline...');
   const [telehealthStatus, setTelehealthStatus] = useState('');
+  const [consentStatus, setConsentStatus] = useState('');
+  const [privacyStatus, setPrivacyStatus] = useState('');
+  const [refillStatus, setRefillStatus] = useState('');
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    sms: true,
+    email: true,
+    app: true,
+  });
+  const [consent, setConsent] = useState({
+    treatmentData: true,
+    telehealthRecording: false,
+    insurerShare: true,
+    researchOptIn: false,
+  });
 
   useEffect(() => {
     let active = true;
@@ -161,6 +195,55 @@ export default function PatientPortal() {
 
   const handleTelehealthJoin = () => {
     setTelehealthStatus('Telehealth room request submitted. Care coordinator will confirm in-app within 2 minutes.');
+  };
+
+  const updateConsent = (key) => {
+    setConsent((prev) => {
+      const next = {
+        ...prev,
+        [key]: !prev[key],
+      };
+      setConsentStatus('Consent preferences updated and logged for compliance review.');
+      return next;
+    });
+  };
+
+  const updateNotification = (key) => {
+    setNotificationPrefs((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const exportHealthData = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      memberId: patientProfile.memberId,
+      profile: patientProfile,
+      upcomingAppointments,
+      recentRecords,
+      billingSummary,
+      consent,
+      notificationPrefs,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `patient-data-package-${patientProfile.memberId}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    setPrivacyStatus('Data package generated successfully.');
+  };
+
+  const submitDeleteRequest = () => {
+    setPrivacyStatus('Data deletion request submitted to compliance desk (SLA: 72 hours).');
+  };
+
+  const requestMedicationRefill = () => {
+    setRefillStatus('Medication refill request sent to pharmacy verification queue.');
   };
 
   return (
@@ -258,6 +341,70 @@ export default function PatientPortal() {
                 <li><span>Out-of-pocket</span><b>{formatMoney(billingSummary.outOfPocket)}</b></li>
               </ul>
               <p className="patient-footnote">Coverage estimate shown from current treatment timeline and partner insurer policy.</p>
+            </article>
+          </section>
+
+          <section className="patient-grid patient-grid-two">
+            <article className="patient-card">
+              <h3><FaPills /> Medication Refill & Care Plan</h3>
+              <p className="patient-prescription">Current medication: {latestPrescription}</p>
+              <button className="patient-action-btn" onClick={requestMedicationRefill}>Request Refill</button>
+              {refillStatus && <p className="patient-inline-status">{refillStatus}</p>}
+
+              <div className="patient-plan-wrap">
+                {carePlanTimeline.map((step) => (
+                  <div className="patient-plan-step" key={step.id}>
+                    <span><FaCheckCircle /> {step.stage}</span>
+                    <small>{step.owner} - {step.target}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="patient-card">
+              <h3><FaSyringe /> Vaccination Card</h3>
+              <ul className="patient-vaccine-list">
+                {vaccinationCard.map((item) => (
+                  <li key={item.name}>
+                    <div>
+                      <b>{item.name}</b>
+                      <p>Last dose: {item.lastDose}</p>
+                    </div>
+                    <div className="patient-list-meta">
+                      <span>Next due: {item.due}</span>
+                      <small className="patient-chip patient-confirmed">{item.status}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </section>
+
+          <section className="patient-grid patient-grid-two">
+            <article className="patient-card">
+              <h3><FaUserShield /> Consent Center</h3>
+              <div className="patient-toggle-list">
+                <label><input type="checkbox" checked={consent.treatmentData} onChange={() => updateConsent('treatmentData')} /> Treatment data sharing for care teams</label>
+                <label><input type="checkbox" checked={consent.telehealthRecording} onChange={() => updateConsent('telehealthRecording')} /> Telehealth recording consent</label>
+                <label><input type="checkbox" checked={consent.insurerShare} onChange={() => updateConsent('insurerShare')} /> Claim data sharing with insurer</label>
+                <label><input type="checkbox" checked={consent.researchOptIn} onChange={() => updateConsent('researchOptIn')} /> Research quality-improvement opt-in</label>
+              </div>
+              {consentStatus && <p className="patient-inline-status">{consentStatus}</p>}
+            </article>
+
+            <article className="patient-card">
+              <h3><FaFileDownload /> Privacy & Data Rights</h3>
+              <div className="patient-privacy-actions">
+                <button className="patient-action-btn" onClick={exportHealthData}><FaFileDownload /> Export My Data</button>
+                <button className="patient-action-btn patient-action-danger" onClick={submitDeleteRequest}><FaTrashAlt /> Request Data Deletion</button>
+              </div>
+              <div className="patient-toggle-list">
+                <label><input type="checkbox" checked={notificationPrefs.sms} onChange={() => updateNotification('sms')} /> SMS appointment reminders</label>
+                <label><input type="checkbox" checked={notificationPrefs.email} onChange={() => updateNotification('email')} /> Email lab and invoice notifications</label>
+                <label><input type="checkbox" checked={notificationPrefs.app} onChange={() => updateNotification('app')} /> In-app care plan updates</label>
+              </div>
+              <p className="patient-footnote"><FaRegBell /> Notification preferences sync with care coordination channels.</p>
+              {privacyStatus && <p className="patient-inline-status">{privacyStatus}</p>}
             </article>
           </section>
         </main>
