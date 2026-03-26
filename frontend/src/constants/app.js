@@ -11,6 +11,7 @@ export const ROUTES = {
   REPORTS: 'reports',
   MEDICAL_RECORDS: 'medical-records',
   INNOVATION_LAB: 'innovation-lab',
+  HOSPITAL_PORTAL: 'hospital-portal',
   // Đã xoá các route staff, clinics, specialties, salaries
 };
 

@@ -12,6 +12,7 @@ const Doctors = lazy(() => import('./pages/Doctors'));
 const Reports = lazy(() => import('./pages/Reports'));
 const MedicalRecords = lazy(() => import('./pages/MedicalRecords'));
 const InnovationLab = lazy(() => import('./pages/InnovationLab'));
+const HospitalPortal = lazy(() => import('./pages/HospitalPortal'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 
@@ -23,6 +24,7 @@ const TITLE_BY_PATH = {
   [`/${ROUTES.REPORTS}`]: 'Reports | Clinic Management',
   [`/${ROUTES.MEDICAL_RECORDS}`]: 'Medical Records | Clinic Management',
   [`/${ROUTES.INNOVATION_LAB}`]: 'Innovation Lab | Clinic Management',
+  [`/${ROUTES.HOSPITAL_PORTAL}`]: 'Hospital Portal | Clinic Management',
   [`/${ROUTES.LOGIN}`]: 'Login | Clinic Management',
   [`/${ROUTES.REGISTER}`]: 'Register | Clinic Management',
 };
@@ -110,6 +112,14 @@ export default function AppRouter() {
                   <InnovationLab />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path={`/${ROUTES.HOSPITAL_PORTAL}`}
+              element={
+                <ProtectedRoute>
+                  <HospitalPortal />
+                </ProtectedRoute>
+              }
             />
             <Route 
               path="/" 
