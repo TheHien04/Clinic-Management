@@ -6,10 +6,12 @@
 Clinic-Management/
 ├── backend/      # Node.js/Express server code
 ├── frontend/     # React client code
-├── data/         # SQL scripts, seed, migration
+├── Data/         # SQL scripts, seed, migration
 ├── assets/       # Images, static resources
 ├── docs/         # Documentation, reports, markdown files
-├── node_modules/ # npm packages
+├── scripts/      # Local automation scripts
+├── uploads/      # Runtime upload storage (non-source artifacts)
+├── .github/      # CI/CD workflows and repository governance
 ├── .gitignore
 ├── package.json
 ```
