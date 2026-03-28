@@ -1,47 +1,47 @@
-# Tài liệu dự án — Clinic Management System
+# Documentation — Clinic Management System
 
-> **README chính (giới thiệu đầy đủ, ảnh từng module, cài đặt, Docker):** [README.md](../README.md)  
+> **Primary README** (full introduction, screenshots by module, setup, Docker): [README.md](../README.md)  
 > **Repository:** [TheHien04/Clinic-Management](https://github.com/TheHien04/Clinic-Management)
 
-Thư mục `docs/` chứa hướng dẫn chuyên sâu, playbook và báo cáo kỹ thuật bổ sung cho đồ án **Cơ sở dữ liệu nâng cao** và các tiêu chuẩn triển khai phần mềm.
+The `docs/` folder contains deep-dive guides, playbooks, and technical notes supporting the **Advanced Database** course outcomes and professional delivery practices (security, testing, DevOps).
 
 ---
 
-## Cấu trúc repository
+## Repository layout
 
 ```
 Clinic-Management/
-├── backend/       # API Node.js / Express, migrations
-├── frontend/      # React 19 + Vite
-├── Data/          # Script SQL nâng cao (index, view, SP, partition, …)
-├── assets/        # Ảnh minh họa cho README & báo cáo
-├── docs/          # Tài liệu (file này và các guide)
-├── scripts/       # Script dev ổn định (local)
-├── .github/       # CI/CD
+├── backend/       # Node.js / Express API, versioned migrations
+├── frontend/      # React 19 + Vite SPA
+├── Data/          # Extended SQL (indexes, views, procedures, partitioning, …)
+├── assets/        # Screenshots for README and reports
+├── docs/          # This index and technical guides
+├── scripts/       # Local development helpers
+├── .github/       # CI/CD workflows
 ├── docker-compose.yml
-└── README.md      # Cửa chính GitHub
+└── README.md      # GitHub landing page
 ```
 
 ---
 
-## Mục lục tài liệu (chọn lọc)
+## Documentation index
 
-| Tài liệu | Nội dung |
-|----------|-----------|
-| [SETUP_GUIDE.md](SETUP_GUIDE.md) | Cài đặt môi trường |
-| [ADVANCED_DATABASE_FEATURES.md](ADVANCED_DATABASE_FEATURES.md) | Tính năng CSDL nâng cao trong đồ án |
-| [BACKEND_API_GUIDE.md](BACKEND_API_GUIDE.md) | Hợp đồng / endpoint API |
-| [SECURITY_GUIDE.md](SECURITY_GUIDE.md) | Hardening, kiểm tra bảo mật |
-| [DEVOPS_DOCKER_CICD.md](DEVOPS_DOCKER_CICD.md) | Docker, CI/CD |
-| [TESTING_PERFORMANCE_SECURITY.md](TESTING_PERFORMANCE_SECURITY.md) | Kiểm thử & hiệu năng |
-| [CHANGELOG.md](CHANGELOG.md) | Nhật ký thay đổi |
+| Document | Description |
+|----------|-------------|
+| [SETUP_GUIDE.md](SETUP_GUIDE.md) | Environment setup |
+| [ADVANCED_DATABASE_FEATURES.md](ADVANCED_DATABASE_FEATURES.md) | Advanced database features showcased in the project |
+| [BACKEND_API_GUIDE.md](BACKEND_API_GUIDE.md) | API reference and integration notes |
+| [SECURITY_GUIDE.md](SECURITY_GUIDE.md) | Security hardening and review checklist |
+| [DEVOPS_DOCKER_CICD.md](DEVOPS_DOCKER_CICD.md) | Docker and CI/CD |
+| [TESTING_PERFORMANCE_SECURITY.md](TESTING_PERFORMANCE_SECURITY.md) | Testing, performance, and security testing |
+| [CHANGELOG.md](CHANGELOG.md) | Change history |
 
-*Các playbook khác (release train, sustainability, branch protection…) nằm cùng thư mục `docs/`.*
+Additional playbooks (release train, sustainability, branch protection, etc.) live alongside these files in `docs/`.
 
 ---
 
-## Ghi chú học thuật
+## Academic and engineering focus
 
-Dự án nhấn mạnh: **chuẩn hóa lược đồ**, **index & tối ưu truy vấn**, **stored procedure / trigger**, **migration có phiên bản**, và **báo cáo OLAP-style** trên SQL Server — kết hợp tầng ứng dụng hiện đại (REST + realtime) đúng hướng một **kỹ sư dữ liệu / backend** triển khai hệ thống thực tế.
+The project emphasizes **schema normalization**, **indexing and query optimization**, **stored procedures and triggers**, **versioned migrations**, and **OLAP-style reporting** on Microsoft SQL Server — combined with a modern **REST + real-time** application tier consistent with **backend / data engineering** delivery standards.
 
-Ảnh chụp màn hình theo từng trang nằm trong [`../assets/`](../assets/) và được nhúng trong [README.md](../README.md).
+Screenshots are stored under [`../assets/`](../assets/) and embedded in the root [README.md](../README.md).
