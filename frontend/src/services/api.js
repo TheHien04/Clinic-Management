@@ -5,6 +5,7 @@
 import axios from 'axios';
 import { STORAGE_KEYS } from '../constants';
 import { getApiBaseUrl } from '../utils/runtimeEnv';
+import { disconnectSocket } from './socket';
 
 // API base URL
 const API_BASE_URL = getApiBaseUrl();
@@ -15,6 +16,7 @@ const isLikelyJwt = (value) => {
 };
 
 const clearSessionAndRedirectToLogin = () => {
+  disconnectSocket();
   localStorage.removeItem(STORAGE_KEYS.USER);
   localStorage.removeItem(STORAGE_KEYS.TOKEN);
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);

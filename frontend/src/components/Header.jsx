@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Header.css';
 import { STORAGE_KEYS, ROUTES } from '../constants';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import CommandPalette from './CommandPalette';
 import { exportToCSV } from '../utils/exportUtils';
 import { subscribeOpsAlerts } from '../services/socket';
@@ -131,9 +132,10 @@ function getInitials(value) {
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: authUser, logout: authLogout } = useAuth();
   const opsPanelRef = React.useRef(null);
   const opsImportInputRef = React.useRef(null);
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || '{}');
+  const user = authUser || {};
   const currentPath = location.pathname.replace(/^\//, '');
   const pageTitle = pageTitles[currentPath] || 'Dashboard';
   const [now, setNow] = React.useState(() => new Date());
@@ -174,7 +176,7 @@ export default function Header() {
     () => localStorage.getItem(OPS_ALERTS_PULSE_DISABLED_KEY) !== '1'
   );
   const [opsReplayStatus, setOpsReplayStatus] = React.useState('');
-  const displayName = user.name || user.email || 'Admin';
+  const displayName = user?.name || user?.email || 'Admin';
   const userInitials = getInitials(displayName);
 
   const healthLabel =
@@ -424,9 +426,7 @@ export default function Header() {
   }, [opsPanelOpen]);
   
   const handleLogout = () => {
-    localStorage.removeItem(STORAGE_KEYS.USER);
-    localStorage.removeItem(STORAGE_KEYS.TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    authLogout();
     navigate(`/${ROUTES.LOGIN}`);
   };
   
@@ -554,7 +554,7 @@ export default function Header() {
         </button>
         <span className="user-avatar">{userInitials}</span>
         <span className="user-name">{displayName}</span>
-        {user.email && (
+        {user?.email && (
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
         )}
       </div>

@@ -7,7 +7,7 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
+// import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -36,7 +36,11 @@ import notificationRoutes from './routes/notifications.js';
 
 // Import middleware
 import { notFound, errorHandler } from './middleware/errorHandler.js';
-import { apiRateLimiter } from './middleware/security.js';
+import securityHeaders from './middleware/securityHeaders.js';
+import inputSanitization from './middleware/inputSanitization.js';
+import { performanceMonitor } from './middleware/performanceMonitor.js';
+import { generalLimiter, authLimiter, uploadLimiter, appointmentLimiter } from './middleware/rateLimiter.js';
+import { cache } from './middleware/cacheMiddleware.js';
 import { stateChangeOriginGuard } from './middleware/requestGuard.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { startSecurityAuditRetentionJob, stopSecurityAuditRetentionJob } from './utils/securityAudit.js';
@@ -47,6 +51,12 @@ import { initSocket } from './socket/index.js';
 // Load environment variables
 dotenv.config();
 validateProductionEnv();
+
+// Optional: Connect Redis if available (for caching/rate limiting)
+import { connectRedis } from './config/redis.js';
+if (process.env.REDIS_URL) {
+  connectRedis();
+}
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -65,28 +75,34 @@ const io = initSocket(httpServer);
 
 // Middleware
 app.disable('x-powered-by');
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  referrerPolicy: { policy: 'no-referrer' },
-  hsts: process.env.NODE_ENV === 'production',
-})); // Security headers
+app.use(securityHeaders); // OWASP Helmet config
 app.use(cors({
   origin: getAllowedOrigins('CORS_ORIGIN'),
   credentials: true
 }));
-app.use(morgan('dev')); // Logging
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(morgan('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(inputSanitization); // Sanitize all input
+app.use(performanceMonitor); // Track request performance
 app.use(stateChangeOriginGuard);
 app.use(csrfProtection);
 
 // Serve static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// API Routes
-app.use('/api', apiRateLimiter);
+// Rate limiting (Redis-backed if available)
+app.use('/api/', generalLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/upload', uploadLimiter);
+app.use('/api/appointments', appointmentLimiter);
+
+// API Routes with caching for GET endpoints (example: cache doctor/patient list)
+app.use('/api/doctors', cache(300));
+app.use('/api/patients', cache(300));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/patients', patientRoutes);

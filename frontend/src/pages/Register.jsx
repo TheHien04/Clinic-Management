@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import './Login.css';
 import { FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { registerAPI } from '../services/auth';
-import { ROUTES, STORAGE_KEYS } from '../constants';
+import { ROUTES } from '../constants';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 function Register() {
+  const { establishSession } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '', confirm: '' });
   const [error, setError] = useState('');
@@ -52,9 +54,11 @@ function Register() {
         name: form.email,
       });
 
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
-      localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
-      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
+      establishSession({
+        user: data.user,
+        token: data.token,
+        refreshToken: data.refreshToken,
+      });
       setSuccess('Registration successful! Redirecting to dashboard...');
       navigate(`/${ROUTES.DASHBOARD}`);
     } catch (err) {

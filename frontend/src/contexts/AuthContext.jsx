@@ -3,7 +3,7 @@
  * Provides authentication state and methods throughout the app
  */
 
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { STORAGE_KEYS } from '../constants';
 import { loginAPI, registerAPI } from '../services/auth';
@@ -12,6 +12,14 @@ import { initSocket, disconnectSocket } from '../services/socket';
 const AuthContext = createContext(null);
 
 const isLikelyJwt = (value) => String(value || '').trim().split('.').length === 3;
+
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (ctx == null) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return ctx;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -43,6 +51,18 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const establishSession = ({ user: nextUser, token, refreshToken }) => {
+    if (!nextUser || !token || !refreshToken) {
+      throw new Error('Invalid session payload');
+    }
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+    setUser(nextUser);
+    setIsAuthenticated(true);
+    initSocket();
+  };
+
   /**
    * Login with username and password
    * @param {string} email - User email/username
@@ -52,17 +72,16 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await loginAPI(email, password);
+      if (response?.mfaRequired && response?.mfaTicket) {
+        return {
+          success: true,
+          requiresOTP: true,
+          mfaTicket: response.mfaTicket,
+          mfaHint: response.mfaHint,
+        };
+      }
       const { user, token, refreshToken } = response;
-
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-
-      setUser(user);
-      setIsAuthenticated(true);
-
-      initSocket();
-
+      establishSession({ user, token, refreshToken });
       return { success: true, requiresOTP: false };
     } catch (error) {
       return { success: false, error: error.message };
@@ -104,16 +123,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await registerAPI(userData);
       const { user, token, refreshToken } = response;
-
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-
-      setUser(user);
-      setIsAuthenticated(true);
-
-      initSocket();
-
+      establishSession({ user, token, refreshToken });
       return { success: true, message: 'Registration successful' };
     } catch (error) {
       return { success: false, error: error.message };
@@ -166,6 +176,7 @@ export const AuthProvider = ({ children }) => {
     user,
     isAuthenticated,
     loading,
+    establishSession,
     login,
     logout,
     register,

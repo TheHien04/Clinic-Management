@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+e2e/test-results
+playwright-report
+.git
+**/*.test.jsx
+**/*.integration.test.jsx

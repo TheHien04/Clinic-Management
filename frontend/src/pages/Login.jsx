@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { STORAGE_KEYS, ROUTES } from '../constants';
+import { ROUTES } from '../constants';
 import { loginAPI, verifyMfaAPI } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import './Login.css';
 
 export default function Login() {
+  const { establishSession } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -36,9 +38,11 @@ export default function Login() {
         return;
       }
 
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
-      localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
-      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
+      establishSession({
+        user: data.user,
+        token: data.token,
+        refreshToken: data.refreshToken,
+      });
       navigate(`/${ROUTES.DASHBOARD}`);
     } catch (err) {
       setError(err?.message || 'Invalid username or password!');

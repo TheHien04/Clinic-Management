@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './pages/Login.css'
 import App from './App.jsx'
-// import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { AuthProvider } from './contexts/AuthContext.jsx'
 
 const root = document.getElementById('root')
 if (!root) {
@@ -11,7 +11,9 @@ if (!root) {
 } else {
   createRoot(root).render(
     <StrictMode>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </StrictMode>
   )
 }

@@ -198,14 +198,80 @@ WHERE d.doctor_id IN (
 );
 
 ------------------------------------------------------------------
--- 5) (Tùy chọn) Kiểm tra trigger staff/manager nếu muốn thêm nhanh:
---    Ở đây chỉ demo map; nếu muốn test schedule/manager thì chạy các test khác.
-------------------------------------------------------------------
 
--- An toàn mặc định:
 ROLLBACK;
--- Nếu muốn lưu dữ liệu test: thay ROLLBACK bằng COMMIT;
 
+--------------------------------------------------
+-- CRUD TESTS: medical_records, salary_records, audit_log
+--------------------------------------------------
+BEGIN TRANSACTION;
+PRINT '--- CRUD TEST: medical_records ---';
+INSERT INTO medical_records (app_id, diagnosis_code, prescription, notes, follow_up_date)
+VALUES (1, 'A01', 'Paracetamol', 'Test note', '2026-04-01');
+UPDATE medical_records SET notes = 'Updated note' WHERE app_id = 1;
+SELECT * FROM medical_records WHERE app_id = 1;
+DELETE FROM medical_records WHERE app_id = 1;
+PRINT '--- CRUD TEST: salary_records ---';
+INSERT INTO salary_records (emp_id, month, total_salary, accountant_id)
+VALUES (1, '2026-03', 10000000, 2);
+UPDATE salary_records SET total_salary = 12000000 WHERE emp_id = 1 AND month = '2026-03';
+SELECT * FROM salary_records WHERE emp_id = 1 AND month = '2026-03';
+DELETE FROM salary_records WHERE emp_id = 1 AND month = '2026-03';
+PRINT '--- CRUD TEST: audit_log (if exists) ---';
+SELECT TOP 10 * FROM audit_log;
+ROLLBACK;
+
+--------------------------------------------------
+-- PERFORMANCE TEST: STATISTICS IO/TIME
+--------------------------------------------------
+SET STATISTICS IO ON;
+SET STATISTICS TIME ON;
+SELECT * FROM appointments WHERE scheduled_time BETWEEN '2025-01-01' AND '2025-12-31';
+SET STATISTICS IO OFF;
+SET STATISTICS TIME OFF;
+
+--------------------------------------------------
+-- SECURITY TEST: SQL Injection thử nghiệm (expect fail)
+--------------------------------------------------
+PRINT '--- SECURITY TEST: SQL Injection (expect fail) ---';
+DECLARE @sql NVARCHAR(4000) = 'SELECT * FROM patients WHERE fullname = ''a''; DROP TABLE patients; --';
+EXEC sp_executesql @sql; -- Nếu có prevention, sẽ không bị drop
+
+--------------------------------------------------
+-- TEST STORED PROCEDURE NÂNG CAO
+--------------------------------------------------
+PRINT '--- TEST: sp_GetPatientHistory ---';
+DECLARE @TotalRecords INT, @TotalPages INT;
+EXEC sp_GetPatientHistory @PatientId = 1, @PageNumber = 1, @PageSize = 5, @SortBy = 'scheduled_time', @SortOrder = 'DESC', @TotalRecords = @TotalRecords OUTPUT, @TotalPages = @TotalPages OUTPUT;
+SELECT @TotalRecords AS TotalRecords, @TotalPages AS TotalPages;
+
+PRINT '--- TEST: sp_MonthlyRevenueReport ---';
+EXEC sp_MonthlyRevenueReport @StartDate = '2025-01-01', @EndDate = '2025-12-31', @DoctorId = NULL, @ClinicId = NULL, @SpecialtyId = NULL;
+
+PRINT '--- TEST: sp_FindAvailableTimeSlots ---';
+EXEC sp_FindAvailableTimeSlots @DoctorId = NULL, @SpecialtyId = 1, @ClinicId = NULL, @Date = '2026-04-01', @DurationMinutes = 30;
+
+PRINT '--- TEST: sp_CalculateDoctorPerformance ---';
+EXEC sp_CalculateDoctorPerformance @DoctorId = 1, @StartDate = '2025-01-01', @EndDate = '2025-12-31';
+
+PRINT '--- TEST: sp_GetUpcomingAppointments ---';
+EXEC sp_GetUpcomingAppointments @ReminderHours = 24;
+
+PRINT '--- TEST: sp_BulkCancelAppointments ---';
+DECLARE @CancelledCount INT;
+EXEC sp_BulkCancelAppointments @DoctorId = 1, @StartDate = '2026-04-01', @EndDate = '2026-04-07', @Reason = 'Test bulk cancel', @CancelledBy = 1, @CancelledCount = @CancelledCount OUTPUT;
+SELECT @CancelledCount AS CancelledCount;
+
+--------------------------------------------------
+-- TEST PARTITION (nếu đã enable)
+--------------------------------------------------
+PRINT '--- TEST PARTITION: appointments table ---';
+SELECT * FROM sys.partition_schemes WHERE name LIKE '%Appointments%';
+SELECT * FROM sys.partition_functions WHERE name LIKE '%Appointments%';
+SELECT $PARTITION.pf_AppointmentsByYear(scheduled_time) AS PartitionNum, COUNT(*) AS Cnt
+FROM appointments
+GROUP BY $PARTITION.pf_AppointmentsByYear(scheduled_time)
+ORDER BY PartitionNum;
 --- Test trigger trg_employees_validate_email_phone (positive & negative) ---
 BEGIN TRANSACTION;
 PRINT '--- TEST trg_employees_validate_email_phone ---';

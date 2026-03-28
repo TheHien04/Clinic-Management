@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import Login from './Login';
 import { STORAGE_KEYS, ROUTES } from '../constants';
+import { AuthProvider } from '../contexts/AuthContext.jsx';
 
 const loginAPIMock = vi.fn();
 const verifyMfaAPIMock = vi.fn();
@@ -12,14 +13,21 @@ vi.mock('../services/auth', () => ({
   verifyMfaAPI: (...args) => verifyMfaAPIMock(...args),
 }));
 
+vi.mock('../services/socket', () => ({
+  initSocket: vi.fn(),
+  disconnectSocket: vi.fn(),
+}));
+
 const renderLoginFlow = () => {
   render(
     <MemoryRouter initialEntries={[`/${ROUTES.LOGIN}`]}>
-      <Routes>
-        <Route path={`/${ROUTES.LOGIN}`} element={<Login />} />
-        <Route path={`/${ROUTES.REGISTER}`} element={<div>Register Page</div>} />
-        <Route path={`/${ROUTES.DASHBOARD}`} element={<div>Dashboard Page</div>} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path={`/${ROUTES.LOGIN}`} element={<Login />} />
+          <Route path={`/${ROUTES.REGISTER}`} element={<div>Register Page</div>} />
+          <Route path={`/${ROUTES.DASHBOARD}`} element={<div>Dashboard Page</div>} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   );
 };

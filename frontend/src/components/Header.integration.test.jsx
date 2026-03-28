@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthProvider } from '../contexts/AuthContext.jsx';
 import Header from './Header';
 
 const subscribeOpsAlertsMock = vi.fn();
@@ -11,6 +12,8 @@ vi.mock('./CommandPalette', () => ({
 }));
 
 vi.mock('../services/socket', () => ({
+  initSocket: vi.fn(() => null),
+  disconnectSocket: vi.fn(),
   subscribeOpsAlerts: (callback) => {
     subscribeOpsAlertsMock(callback);
     socketOpsAlertCallback = callback;
@@ -39,6 +42,8 @@ describe('Header ops alerts integration', () => {
     socketOpsAlertCallback = null;
 
     localStorage.setItem('user', JSON.stringify({ name: 'Ops Admin', email: 'ops@example.com' }));
+    localStorage.setItem('auth_token', 'eyJhbGci.test.eyJzdWIiOiIxIn0.signature');
+    localStorage.setItem('refresh_token', 'eyJhbGci.test.eyJ0eXAiOiJSU0gifQ.signature');
     localStorage.setItem('app_theme', 'light');
 
     const payload = {
@@ -67,12 +72,18 @@ describe('Header ops alerts integration', () => {
     sessionStorage.clear();
   });
 
-  it('marks current ops alerts as unread from global event', async () => {
-    render(
+  function renderHeader() {
+    return render(
       <MemoryRouter initialEntries={['/doctors']}>
-        <Header />
+        <AuthProvider>
+          <Header />
+        </AuthProvider>
       </MemoryRouter>
     );
+  }
+
+  it('marks current ops alerts as unread from global event', async () => {
+    renderHeader();
 
     const opsButton = await screen.findByRole('button', { name: /ops alerts/i });
     expect(opsButton.textContent || '').not.toMatch(/new/i);
@@ -86,11 +97,7 @@ describe('Header ops alerts integration', () => {
   });
 
   it('toggles pulse class off when global toggle event is fired', async () => {
-    render(
-      <MemoryRouter initialEntries={['/doctors']}>
-        <Header />
-      </MemoryRouter>
-    );
+    renderHeader();
 
     const opsButton = await screen.findByRole('button', { name: /ops alerts/i });
 
@@ -110,11 +117,7 @@ describe('Header ops alerts integration', () => {
   });
 
   it('marks ops alerts as unread when socket callback pushes new alert', async () => {
-    render(
-      <MemoryRouter initialEntries={['/doctors']}>
-        <Header />
-      </MemoryRouter>
-    );
+    renderHeader();
 
     const opsButton = await screen.findByRole('button', { name: /ops alerts/i });
     expect(subscribeOpsAlertsMock).toHaveBeenCalled();
