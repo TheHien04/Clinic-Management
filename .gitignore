@@ -1,3 +1,22 @@
 node_modules
 .dev-stable.log
 .dev-stable.pid
+
+# Build artifacts
+dist
+build
+coverage
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor noise
+.DS_Store
+.vscode/settings.json
