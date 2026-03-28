@@ -7,7 +7,6 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20%20%3C23-339933?logo=nodedotjs)](package.json)  
 [![CI](https://img.shields.io/github/actions/workflow/status/TheHien04/Clinic-Management/backend-ci.yml?label=backend%20CI&logo=github)](https://github.com/TheHien04/Clinic-Management/actions)
 
-**Repository:** [github.com/TheHien04/Clinic-Management](https://github.com/TheHien04/Clinic-Management)
 
 </div>
 
@@ -265,9 +264,9 @@ flowchart LR
 ## 5. API, security, and software quality
 
 - **Authentication and authorization:** JWT access tokens, refresh rotation, `authorize` middleware by role.  
-- **Hardening:** rate limits (including appointment-specific limits with **IPv6-safe** key generation), request sanitization, security headers, optional CSRF controls.  
+- **Hardening:** rate limits (including appointment-specific limits with **IPv6-safe** key generation), request sanitization, security headers, and optional CSRF controls.  
 - **Observability:** `/api/health`, performance middleware; optional **Redis** for response caching.  
-- **Quality gates:** `npm run qa:release` (frontend lint/tests/build, backend unit tests, smoke); GitHub Actions workflows with a **SQL Server** service container.  
+- **Quality gates:** `npm run qa: release` (frontend lint/tests/build, backend unit tests, smoke); GitHub Actions workflows with a **SQL Server** service container.  
 - **Vulnerability reporting:** [SECURITY.md](SECURITY.md) and [docs/SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md).
 
 ---
@@ -299,8 +298,8 @@ npm run dev:stable
 **Quick local QA:**
 
 ```bash
-npm run qa:release
-npm run qa:security
+npm run qa: release
+npm run qa: security
 ```
 
 ---
