@@ -18,7 +18,7 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
-    "antd": "^5.27.3",
+    "antd": "^6.3.4",
     "axios": "^1.13.5",
     "prop-types": "^15.8.1",
     "react": "^19.1.1",
