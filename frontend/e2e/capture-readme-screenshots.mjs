@@ -39,6 +39,52 @@ const bioinformaticsFixture = {
 await mkdir(outputDir, { recursive: true });
 const browser = await chromium.launch();
 
+const settlePage = async (page, name) => {
+  await page.waitForLoadState('networkidle').catch(() => {});
+  const main = page.locator('#main-content');
+  await main.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  if (name === 'bioinformatics') {
+    await page.getByRole('heading', { name: /Bioinformatics/i }).waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  }
+
+  // Trigger lazy sections/images and wait for layout to stop changing before
+  // taking a full-page capture. This prevents a blank lower half in README.
+  await page.evaluate(async () => {
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const maxScroll = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    for (let y = 0; y <= maxScroll; y += Math.max(600, Math.floor(window.innerHeight * 0.8))) {
+      window.scrollTo(0, y);
+      await pause(80);
+    }
+    window.scrollTo(0, 0);
+    const images = Array.from(document.images);
+    await Promise.all(images.map((image) => image.complete ? Promise.resolve() : new Promise((resolve) => {
+      image.addEventListener('load', resolve, { once: true });
+      image.addEventListener('error', resolve, { once: true });
+    })));
+  });
+  await page.waitForTimeout(1200);
+};
+
+const expandScrollableWorkspace = async (page) => {
+  await page.evaluate(() => {
+    const workspace = document.querySelector('.dashboard-main');
+    if (!workspace) return;
+    // The product uses an internal workspace scroller in the live app. For a
+    // documentation capture, expand that scroller into the document so the
+    // screenshot includes every section instead of only the first viewport.
+    const fullHeight = Math.max(workspace.scrollHeight, document.documentElement.scrollHeight);
+    workspace.style.height = `${fullHeight}px`;
+    workspace.style.maxHeight = 'none';
+    workspace.style.overflowY = 'visible';
+    workspace.style.overflowX = 'visible';
+    document.documentElement.style.height = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.overflow = 'visible';
+  });
+  await page.waitForTimeout(250);
+};
+
 try {
   for (const [name, route, authenticated] of routes) {
     const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
@@ -60,10 +106,10 @@ try {
         localStorage.setItem('user', JSON.stringify({ email: 'readme@clinic.com', name: 'README Capture', role: 'admin' }));
       });
     }
-    await page.goto(`${baseURL}${route}`, { waitUntil: 'networkidle' });
-    if (name === 'bioinformatics') await page.getByRole('heading', { name: /Bioinformatics/i }).waitFor();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: path.join(outputDir, `${name}.png`), fullPage: false });
+    await page.goto(`${baseURL}${route}`, { waitUntil: 'domcontentloaded' });
+    await settlePage(page, name);
+    await expandScrollableWorkspace(page);
+    await page.screenshot({ path: path.join(outputDir, `${name}.png`), fullPage: true });
     await context.close();
     console.log(`captured ${name}`);
   }

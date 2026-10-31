@@ -28,35 +28,75 @@ The project uses synthetic/demo clinical data only. It is not a medical device a
 
 ## Current UI captures
 
-Screenshots below were captured from the current routes with Playwright and are stored in [`assets/current/`](assets/current/).
+Screenshots below are full-page captures: the capture runner scrolls through each route to trigger lazy content, waits for the layout to settle, then stores the complete document in [`assets/current/`](assets/current/). Each route is shown independently so GitHub does not compress two tall pages into a misleading side-by-side collage.
 
-<p align="center">
-  <img src="assets/current/login.png" alt="Current secure sign-in page" width="48%" />
-  <img src="assets/current/dashboard.png" alt="Current operations dashboard" width="48%" />
-</p>
-<p align="center">
-  <img src="assets/current/register.png" alt="Current registration page" width="48%" />
-  <img src="assets/current/appointments.png" alt="Current appointment command center" width="48%" />
-</p>
-<p align="center">
-  <img src="assets/current/patients.png" alt="Current patient workspace" width="48%" />
-  <img src="assets/current/doctors.png" alt="Current doctors workspace" width="48%" />
-</p>
-<p align="center">
-  <img src="assets/current/medical-records.png" alt="Current medical records workspace" width="48%" />
-  <img src="assets/current/reports.png" alt="Current reports workspace" width="48%" />
-</p>
-<p align="center">
-  <img src="assets/current/innovation-lab.png" alt="Current innovation lab" width="48%" />
-  <img src="assets/current/bioinformatics.png" alt="Current bioinformatics atlas" width="48%" />
-</p>
-<p align="center">
-  <img src="assets/current/notifications.png" alt="Current notification center" width="48%" />
-  <img src="assets/current/hospital-portal.png" alt="Current hospital portal" width="48%" />
-</p>
-<p align="center">
-  <img src="assets/current/patient-portal.png" alt="Current patient portal" width="48%" />
-</p>
+<details open>
+<summary><strong>Authentication</strong></summary>
+
+**Login — secure workspace entry and MFA-ready sign-in**
+
+<img src="assets/current/login.png" alt="Full-page secure sign-in page" width="100%" />
+
+**Register — consent-aware patient onboarding**
+
+<img src="assets/current/register.png" alt="Full-page registration page" width="100%" />
+</details>
+
+<details open>
+<summary><strong>Care operations</strong></summary>
+
+**Dashboard — live command center and decision rail**
+
+<img src="assets/current/dashboard.png" alt="Full-page operations dashboard" width="100%" />
+
+**Appointments — queue orchestration from request to close-the-loop**
+
+<img src="assets/current/appointments.png" alt="Full-page appointment command center" width="100%" />
+
+**Patients — patient access desk and longitudinal care signals**
+
+<img src="assets/current/patients.png" alt="Full-page patient workspace" width="100%" />
+
+**Doctors — staffing capacity and workload intelligence**
+
+<img src="assets/current/doctors.png" alt="Full-page doctors workspace" width="100%" />
+</details>
+
+<details open>
+<summary><strong>Clinical intelligence and research</strong></summary>
+
+**Medical records — governed documentation quality and follow-up pressure**
+
+<img src="assets/current/medical-records.png" alt="Full-page medical records workspace" width="100%" />
+
+**Reports — explainable cohorts, risk trajectories and operational scenarios**
+
+<img src="assets/current/reports.png" alt="Full-page reports command center" width="100%" />
+
+**Innovation Lab — transparent AI triage, policy and security governance**
+
+<img src="assets/current/innovation-lab.png" alt="Full-page innovation lab" width="100%" />
+
+**Bioinformatics Atlas — consent-scoped molecular metadata and provenance**
+
+<img src="assets/current/bioinformatics.png" alt="Full-page bioinformatics atlas" width="100%" />
+</details>
+
+<details open>
+<summary><strong>Coordination and patient services</strong></summary>
+
+**Notifications — inbox, delivery retries and dead-letter visibility**
+
+<img src="assets/current/notifications.png" alt="Full-page notification center" width="100%" />
+
+**Hospital Portal — emergency contacts and international care coordination**
+
+<img src="assets/current/hospital-portal.png" alt="Full-page hospital portal" width="100%" />
+
+**Patient Portal — patient-facing schedule, consent and preventive care**
+
+<img src="assets/current/patient-portal.png" alt="Full-page patient portal" width="100%" />
+</details>
 
 ### Route notes
 

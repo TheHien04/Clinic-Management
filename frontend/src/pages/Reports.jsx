@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Reports.css';
+import './Common.css';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useAppointmentContext } from '../contexts/AppointmentContext';
