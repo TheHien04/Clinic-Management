@@ -41,6 +41,8 @@ vi.mock('recharts', () => {
     Pie: Mock,
     Cell: Mock,
     Tooltip: Mock,
+    AreaChart: Mock,
+    Area: Mock,
     BarChart: Mock,
     Bar: Mock,
     XAxis: Mock,

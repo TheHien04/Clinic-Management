@@ -1,64 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { DetailsIcon, EditIcon, DeleteIcon } from '../components/icons';
 import PatientModal from '../components/PatientModal';
 import PatientForm from '../components/PatientForm';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
-import { formatMonthShort } from '../utils/i18nFormat';
+import { getAppointmentsForAnalyticsAPI } from '../services/appointments';
+import { createPatientAPI, deletePatientAPI, getPatientIntelligenceAPI, getPatientsAPI, updatePatientAPI } from '../services/patients';
+import { FaArrowRight, FaCheckCircle, FaDatabase, FaDna, FaExchangeAlt, FaHeartbeat, FaPhoneAlt, FaSearch, FaShieldAlt, FaUserPlus } from 'react-icons/fa';
 import './Patients.css';
 import './Common.css';
-
-// Mock appointments for chart (April, May, June, July, August) - up/down for chart beauty
-const mockAppointments = [
-  { patient: 'Nguyen Van A', doctor: 'Dr. Smith', date: '2025-04-15', email: 'vana@gmail.com', phone: '0901234567', warning: 'Chronic: Diabetes', dob: '1980-05-12' },
-  { patient: 'Nguyen Thi H', doctor: 'Dr. Anna', date: '2025-04-20', email: 'thih@gmail.com', phone: '0906789123', warning: '', dob: '1972-11-03' },
-  { patient: 'Tran Thi B', doctor: 'Dr. John', date: '2025-05-10', email: 'thib@gmail.com', phone: '0902345678', warning: '', dob: '2005-09-20' },
-  { patient: 'Le Van C', doctor: 'Dr. Smith', date: '2025-06-05', email: 'vanc@gmail.com', phone: '0903456789', warning: 'Chronic: Hypertension', dob: '1950-03-01' },
-  { patient: 'Hoang Minh G', doctor: 'Dr. John', date: '2025-06-11', email: 'minhg@gmail.com', phone: '0905678912', warning: 'Chronic: Asthma', dob: '2010-07-22' },
-  { patient: 'Pham Thi D', doctor: 'Dr. Smith', date: '2025-07-22', email: 'thid@gmail.com', phone: '0904567890', warning: '', dob: '1995-12-15' },
-  { patient: 'Nguyen Van A', doctor: 'Dr. Smith', date: '2025-08-29', email: 'vana@gmail.com', phone: '0901234567', warning: 'Chronic: Diabetes', dob: '1980-05-12' },
-  { patient: 'Tran Thi B', doctor: 'Dr. John', date: '2025-08-29', email: 'thib@gmail.com', phone: '0902345678', warning: '', dob: '2005-09-20' },
-  { patient: 'Le Van C', doctor: 'Dr. Anna', date: '2025-08-30', email: 'vanc@gmail.com', phone: '0903456789', warning: 'Chronic: Hypertension', dob: '1950-03-01' },
-  { patient: 'Pham Thi D', doctor: 'Dr. Smith', date: '2025-08-30', email: 'thid@gmail.com', phone: '0904567890', warning: '', dob: '1995-12-15' },
-  { patient: 'Hoang Minh G', doctor: 'Dr. John', date: '2025-08-11', email: 'minhg@gmail.com', phone: '0905678912', warning: 'Chronic: Asthma', dob: '2010-07-22' },
-  // Add more for up/down effect
-  { patient: 'Nguyen Van A', doctor: 'Dr. Smith', date: '2025-05-15', email: 'vana@gmail.com', phone: '0901234567', warning: 'Chronic: Diabetes', dob: '1980-05-12' },
-  { patient: 'Tran Thi B', doctor: 'Dr. John', date: '2025-07-10', email: 'thib@gmail.com', phone: '0902345678', warning: '', dob: '2005-09-20' },
-  { patient: 'Le Van C', doctor: 'Dr. Anna', date: '2025-06-30', email: 'vanc@gmail.com', phone: '0903456789', warning: 'Chronic: Hypertension', dob: '1950-03-01' },
-  { patient: 'Pham Thi D', doctor: 'Dr. Smith', date: '2025-05-22', email: 'thid@gmail.com', phone: '0904567890', warning: '', dob: '1995-12-15' },
-  { patient: 'Hoang Minh G', doctor: 'Dr. John', date: '2025-07-11', email: 'minhg@gmail.com', phone: '0905678912', warning: 'Chronic: Asthma', dob: '2010-07-22' },
-  { patient: 'Nguyen Thi H', doctor: 'Dr. Anna', date: '2025-06-20', email: 'thih@gmail.com', phone: '0906789123', warning: '', dob: '1972-11-03' },
-  // September patient for demo
-  { patient: 'Pham Van K', doctor: 'Dr. Smith', date: '2025-09-05', email: 'phamk@gmail.com', phone: '0909999999', warning: '', dob: '1990-01-01' }
-];
-
-const basePatients = [
-  { id: 1, name: 'Nguyen Van A', email: 'vana@gmail.com', phone: '0901234567', warning: 'Chronic: Diabetes', dob: '1980-05-12' },
-  { id: 2, name: 'Tran Thi B', email: 'thib@gmail.com', phone: '0902345678', warning: '', dob: '2005-09-20' },
-  { id: 3, name: 'Le Van C', email: 'vanc@gmail.com', phone: '0903456789', warning: 'Chronic: Hypertension', dob: '1950-03-01' },
-  { id: 4, name: 'Pham Thi D', email: 'thid@gmail.com', phone: '0904567890', warning: '', dob: '1995-12-15' },
-  { id: 5, name: 'Hoang Minh G', email: 'minhg@gmail.com', phone: '0905678912', warning: 'Chronic: Asthma', dob: '2010-07-22' },
-  { id: 6, name: 'Nguyen Thi H', email: 'thih@gmail.com', phone: '0906789123', warning: '', dob: '1972-11-03' },
-];
-
-// Thêm mockdata lịch hẹn hôm nay, giờ gần hiện tại để demo "Lịch hẹn trong 2 giờ tới"
-const now = new Date();
-const todayStr = now.toISOString().slice(0, 10);
-const hour = now.getHours();
-const minute = now.getMinutes();
-const pad = n => n.toString().padStart(2, '0');
-mockAppointments.push({
-  patient: 'Nguyen Van M',
-  doctor: 'Dr. John',
-  date: todayStr,
-  email: 'nguyenm@gmail.com',
-  phone: '0908888888',
-  warning: '',
-  dob: '1992-02-02',
-  time: pad(hour) + ':' + pad((minute + 30) % 60), // giờ hiện tại + 30 phút
-  status: 'Confirmed'
-});
+import './CareWorkspace.css';
 
 export default function Patients() {
   const [search, setSearch] = useState('');
@@ -73,116 +24,158 @@ export default function Patients() {
   const [modalHistory, setModalHistory] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editPatient, setEditPatient] = useState(null);
+  const [outreachLedger, setOutreachLedger] = useState({});
+  const [workspaceNotice, setWorkspaceNotice] = useState('');
+  const [patientData, setPatientData] = useState([]);
+  const [appointmentData, setAppointmentData] = useState([]);
+  const [intelligence, setIntelligence] = useState(null);
+  const [dataOrigin, setDataOrigin] = useState('Loading governed data…');
+  const [tablePage, setTablePage] = useState(1);
   const searchInputRef = useRef(null);
   const growthRef = useRef(null);
   const tableRef = useRef(null);
   const riskRef = useRef(null);
   const outreachRef = useRef(null);
 
-  // Lấy danh sách bệnh nhân duy nhất từ appointments và patients
-  // Mock: enrich patients with more info
-  // Mock: enrich patients with more info (chronic, email, phone)
-  // Mock base data and appointments for all pages (April, June, August)
-  // Use mockAppointments for all pages
-  const patientList = useMemo(() => {
-    const all = [...basePatients];
-    mockAppointments.forEach(app => {
-      if (!all.find(p => p.name === app.patient)) {
-        all.push({
-          id: all.length + 1,
-          name: app.patient,
-          email: app.email || '',
-          phone: app.phone || '',
-          warning: app.warning || '',
-          dob: app.dob || '',
-        });
+  useEffect(() => {
+    let active = true;
+
+    const loadGovernedData = async () => {
+      try {
+        const [patients, appointments, overview] = await Promise.all([
+          getPatientsAPI({ limit: 500 }).catch(() => null),
+          getAppointmentsForAnalyticsAPI({ limit: 2000 }).catch(() => null),
+          getPatientIntelligenceAPI().catch(() => null),
+        ]);
+
+        if (!active) return;
+        const normalizedPatients = (Array.isArray(patients) ? patients : []).map((patient) => ({
+          id: patient.PatientID,
+          name: patient.FullName,
+          email: patient.Email || '',
+          phone: patient.PhoneNumber || '',
+          warning: patient.MedicalHistory || '',
+          dob: patient.DateOfBirth ? String(patient.DateOfBirth).slice(0, 10) : '',
+          gender: patient.Gender || '',
+          address: patient.Address || '',
+          createdDate: patient.CreatedDate ? String(patient.CreatedDate).slice(0, 10) : '',
+          recordVersion: patient.RecordVersion || null,
+        }));
+
+        setPatientData(normalizedPatients);
+        setAppointmentData(Array.isArray(appointments) ? appointments : []);
+        setIntelligence(overview || null);
+        setDataOrigin(normalizedPatients.length && overview
+          ? 'Synthetic clinical dataset · SQL source of truth'
+          : normalizedPatients.length
+            ? 'SQL patient registry live · care intelligence temporarily unavailable'
+            : 'Governed backend unavailable · no mock data displayed');
+      } catch {
+        if (!active) return;
+        setPatientData([]);
+        setAppointmentData([]);
+        setIntelligence(null);
+        setDataOrigin('Governed backend unavailable · no mock data displayed');
       }
-    });
-    return all;
+    };
+
+    loadGovernedData();
+    return () => { active = false; };
   }, []);
 
-  // Lọc nâng cao & tìm kiếm thông minh
+  const patientList = useMemo(() => {
+    return patientData;
+  }, [patientData]);
+
+  const getCompletedHistory = useCallback((patient) => {
+    const today = new Date().toISOString().slice(0, 10);
+    return appointmentData
+      .filter((appointment) => (
+        Number(appointment.patientId) === Number(patient.id)
+        || (!appointment.patientId && appointment.patient === patient.name)
+      ))
+      .filter((appointment) => appointment.status === 'completed' && appointment.date && appointment.date <= today)
+      .sort((a, b) => b.date.localeCompare(a.date) || String(b.time || '').localeCompare(String(a.time || '')));
+  }, [appointmentData]);
+
+  // Advanced filters use completed encounters, not future bookings, so the
+  // table and the SQL risk model share one defensible definition of a visit.
   const filtered = patientList.filter(p => {
     const nameMatch = p.name.toLowerCase().includes(search.toLowerCase());
     const emailMatch = !emailFilter || (p.email && p.email.toLowerCase().includes(emailFilter.toLowerCase()));
     const phoneMatch = !phoneFilter || (p.phone && p.phone.includes(phoneFilter));
     const idMatch = !idFilter || String(p.id).includes(idFilter);
     const chronicMatch = !chronicFilter || (p.warning && p.warning.toLowerCase().includes('chronic'));
-    const doctorMatch = !doctorFilter || mockAppointments.some(a => a.patient === p.name && a.doctor === doctorFilter);
-    const history = mockAppointments.filter(a => a.patient === p.name);
-    const lastVisit = history.length ? history[history.length - 1].date : '';
+    const doctorMatch = !doctorFilter || appointmentData.some(a => (
+      (Number(a.patientId) === Number(p.id) || (!a.patientId && a.patient === p.name))
+      && a.doctor === doctorFilter
+    ));
+    const history = getCompletedHistory(p);
+    const lastVisit = history[0]?.date || '';
     const lastVisitMatch = !lastVisitFilter || (lastVisit && lastVisit >= lastVisitFilter);
     const visitCountMatch = !visitCountFilter || history.length >= Number(visitCountFilter);
     return nameMatch && emailMatch && phoneMatch && idMatch && chronicMatch && doctorMatch && lastVisitMatch && visitCountMatch;
   });
 
-  // Show only patients with last visit in the last 6 months
-  const recentMonths = (() => {
-    const now = new Date();
-    const months = [];
-    for (let i = 0; i < 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(d.toISOString().slice(0, 7));
-    }
-    return months;
-  })();
-  const filteredRecent = filtered.filter(p => {
-    const history = mockAppointments.filter(a => a.patient === p.name);
-    const lastVisit = history.length ? history[history.length - 1].date : '';
-    return recentMonths.some(m => lastVisit.startsWith(m));
-  });
+  // Keep inactive/care-gap patients visible. Silently limiting the table to
+  // recent visitors would hide the very cohort outreach teams must recover.
+  const filteredRecent = filtered;
+
+  const tablePageSize = 25;
+  const tablePageCount = Math.max(1, Math.ceil(filteredRecent.length / tablePageSize));
+  const paginatedPatients = useMemo(() => {
+    const start = (tablePage - 1) * tablePageSize;
+    return filteredRecent.slice(start, start + tablePageSize);
+  }, [filteredRecent, tablePage]);
+
+  useEffect(() => {
+    setTablePage(1);
+  }, [search, doctorFilter, chronicFilter, emailFilter, phoneFilter, idFilter, lastVisitFilter, visitCountFilter]);
+
+  useEffect(() => {
+    setTablePage((current) => Math.min(current, tablePageCount));
+  }, [tablePageCount]);
 
   // Lấy lịch sử khám cho từng bệnh nhân
-  const getHistory = (name) => mockAppointments.filter(a => a.patient === name);
+  const getHistory = useCallback(
+    (patient) => appointmentData
+      .filter((appointment) => (
+        Number(appointment.patientId) === Number(patient.id)
+        || (!appointment.patientId && appointment.patient === patient.name)
+      ))
+      .sort((a, b) => b.date.localeCompare(a.date) || String(b.time || '').localeCompare(String(a.time || ''))),
+    [appointmentData],
+  );
+
+  // Do not manufacture clinical-looking priorities in the browser when the
+  // governed backend model is unavailable. Preview records may still support
+  // layout review, but the decision-support surfaces remain empty.
+  const localPatientRiskRows = useMemo(() => [], []);
 
   const patientRiskRows = useMemo(() => {
-    const today = new Date();
+    if (!intelligence) return localPatientRiskRows;
+    const visibleIds = new Set(filteredRecent.map((patient) => Number(patient.id)));
+    return (intelligence.riskRows || []).filter((row) => visibleIds.has(Number(row.id)));
+  }, [filteredRecent, intelligence, localPatientRiskRows]);
 
-    return filteredRecent.map((patient) => {
-      const history = getHistory(patient.name);
-      const lastVisit = history.length ? history[history.length - 1].date : '';
-      const age = patient.dob ? Math.floor((today.getTime() - new Date(patient.dob).getTime()) / 3.15576e10) : 35;
-      const chronic = patient.warning?.toLowerCase().includes('chronic');
-      const visits = history.length;
+  const derivedRiskCohorts = useMemo(() => {
+    const summarize = (members) => ({
+      count: members.length,
+      avg: members.length ? Math.round(members.reduce((sum, row) => sum + row.riskScore, 0) / members.length) : 0,
+      confidence: members.length ? Math.round(members.reduce((sum, row) => sum + Number(row.confidence || 0), 0) / members.length) : 0,
+    });
 
-      let daysSinceLastVisit = 180;
-      if (lastVisit) {
-        const delta = today.getTime() - new Date(lastVisit).getTime();
-        daysSinceLastVisit = Math.max(0, Math.round(delta / (24 * 60 * 60 * 1000)));
-      }
-
-      const riskScore = Math.min(100,
-        (chronic ? 38 : 10) +
-        (age >= 65 ? 22 : age < 18 ? 12 : 16) +
-        Math.min(24, daysSinceLastVisit * 0.12) +
-        Math.min(16, visits * 2)
-      );
-
-      const riskBand = riskScore >= 70 ? 'high' : riskScore >= 45 ? 'medium' : 'low';
-      const outreachPriority = riskBand === 'high' ? '24h nurse call + tele-consult' : riskBand === 'medium' ? '48h reminder + care coach' : 'Monthly preventive nudge';
-
-      return {
-        id: patient.id,
-        name: patient.name,
-        visits,
-        lastVisit: lastVisit || 'N/A',
-        riskScore: Math.round(riskScore),
-        riskBand,
-        outreachPriority,
-      };
-    }).sort((a, b) => b.riskScore - a.riskScore);
-  }, [filteredRecent]);
-
-  const riskCohorts = useMemo(() => {
     const high = patientRiskRows.filter((row) => row.riskBand === 'high');
     const medium = patientRiskRows.filter((row) => row.riskBand === 'medium');
     const low = patientRiskRows.filter((row) => row.riskBand === 'low');
     return {
-      high: { count: high.length, avg: high.length ? Math.round(high.reduce((sum, row) => sum + row.riskScore, 0) / high.length) : 0 },
-      medium: { count: medium.length, avg: medium.length ? Math.round(medium.reduce((sum, row) => sum + row.riskScore, 0) / medium.length) : 0 },
-      low: { count: low.length, avg: low.length ? Math.round(low.reduce((sum, row) => sum + row.riskScore, 0) / low.length) : 0 },
+      high: summarize(high),
+      medium: summarize(medium),
+      low: summarize(low),
     };
   }, [patientRiskRows]);
+
+  const riskCohorts = derivedRiskCohorts;
 
   const outreachQueue = useMemo(() => {
     return patientRiskRows
@@ -195,25 +188,67 @@ export default function Patients() {
       .slice(0, 8);
   }, [patientRiskRows]);
 
+  const careGapCount = patientRiskRows.filter((row) => row.daysSinceLastVisit >= 90).length;
+
+  const handleOutreach = (row) => {
+    const contactedAt = new Date().toISOString();
+    setOutreachLedger((current) => ({ ...current, [row.id]: contactedAt }));
+    setWorkspaceNotice(`${row.name} was moved into the active outreach workflow.`);
+    window.setTimeout(() => setWorkspaceNotice(''), 3600);
+  };
+
   // CRUD
   const handleAdd = () => { setEditPatient(null); setShowForm(true); };
   const handleEdit = (p) => { setEditPatient(p); setShowForm(true); };
-  const handleDelete = (p) => {
+  const handleDelete = async (p) => {
     if (window.confirm('Delete patient ' + p.name + '?')) {
-      // Just show alert for demo
-      alert('Deleted patient: ' + p.name);
+      try {
+        await deletePatientAPI(p.id);
+        setPatientData((current) => current.filter((patient) => patient.id !== p.id));
+        setWorkspaceNotice(`${p.name} was deleted from the SQL patient registry.`);
+      } catch (error) {
+        setWorkspaceNotice(error?.message || 'Unable to delete this patient. Existing visits must be retained.');
+      }
     }
   };
-  const handleSave = (data) => {
-    // Just show alert for demo
-    alert('Saved patient: ' + data.name);
+  const handleSave = async (data) => {
+    const payload = {
+      fullName: data.name,
+      dateOfBirth: data.dob || null,
+      gender: data.gender || null,
+      phoneNumber: data.phone,
+      email: data.email || null,
+      address: data.address || null,
+      medicalHistory: data.warning || null,
+      recordVersion: data.recordVersion || null,
+    };
+
+    const saved = data.id
+      ? await updatePatientAPI(data.id, payload)
+      : await createPatientAPI(payload);
+    const normalized = {
+      id: saved.PatientID,
+      name: saved.FullName,
+      email: saved.Email || '',
+      phone: saved.PhoneNumber || '',
+      warning: saved.MedicalHistory || '',
+      dob: saved.DateOfBirth ? String(saved.DateOfBirth).slice(0, 10) : '',
+      gender: saved.Gender || '',
+      address: saved.Address || '',
+      createdDate: saved.CreatedDate ? String(saved.CreatedDate).slice(0, 10) : '',
+      recordVersion: saved.RecordVersion || null,
+    };
+    setPatientData((current) => data.id
+      ? current.map((patient) => patient.id === data.id ? normalized : patient)
+      : [normalized, ...current]);
+    setWorkspaceNotice(`${normalized.name} was saved to SQL successfully.`);
     setShowForm(false);
   };
 
   // Modal chi tiết
   const handleView = (p) => {
     setModalPatient(p);
-    setModalHistory(getHistory(p.name));
+    setModalHistory(getHistory(p));
   };
   const handleCloseModal = () => setModalPatient(null);
   const handleBook = () => {
@@ -229,9 +264,9 @@ export default function Patients() {
   // Lấy danh sách bác sĩ
   const doctorList = useMemo(() => {
     const set = new Set();
-    mockAppointments.forEach(a => set.add(a.doctor));
+    appointmentData.forEach(a => set.add(a.doctor));
     return Array.from(set);
-  }, []);
+  }, [appointmentData]);
 
   // Thống kê nhanh
   const now = new Date();
@@ -239,33 +274,17 @@ export default function Patients() {
   const stats = useMemo(() => {
     let chronic = 0, newThisMonth = 0;
     patientList.forEach(p => {
-      if (p.warning && p.warning.toLowerCase().includes('chronic')) chronic++;
-      const history = mockAppointments.filter(a => a.patient === p.name);
-      if (history.length && history[history.length - 1].date && history[history.length - 1].date.startsWith(thisMonth)) newThisMonth++;
+      if (p.warning && p.warning.trim()) chronic++;
+      if (p.createdDate?.startsWith(thisMonth)) {
+        newThisMonth++;
+      } else if (!p.createdDate) {
+        const history = appointmentData.filter(a => a.patient === p.name);
+        if (history.length && history[history.length - 1].date?.startsWith(thisMonth)) newThisMonth++;
+      }
     });
     return { total: patientList.length, chronic, newThisMonth };
-  }, [patientList, thisMonth]);
+  }, [appointmentData, patientList, thisMonth]);
 
-  // Pie chart data
-  const pieData = [
-    { name: 'Chronic', value: stats.chronic },
-    { name: 'New', value: stats.newThisMonth },
-    { name: 'Other', value: stats.total - stats.chronic - stats.newThisMonth }
-  ];
-  const pieColors = ['var(--success-fg)', 'var(--warning-fg)', 'var(--brand-500)'];
-
-  const formatMonthLabel = (month) => {
-    const [year, mon] = month.split('-').map(Number);
-    return formatMonthShort(new Date(year, mon - 1, 1));
-  };
-
-  const pieTooltipFormatter = (value, name) => {
-    const total = pieData.reduce((sum, item) => sum + item.value, 0);
-    const percent = total ? ((value / total) * 100).toFixed(1) : '0.0';
-    return [`${value} (${percent}%)`, name];
-  };
-
-  const growthTooltipFormatter = (value) => [`${value} patients`, 'New Patients'];
 
   const runPatientsCommand = useCallback((action) => {
     if (!action) return;
@@ -340,88 +359,61 @@ export default function Patients() {
     return () => window.removeEventListener('patients:command', onCommand);
   }, [runPatientsCommand]);
 
-  // Mini chart: số bệnh nhân mới từng tháng (hiển thị 6 tháng gần nhất, kể cả tháng không có bệnh nhân)
-  const patientGrowthData = useMemo(() => {
-    const monthMap = {};
-    mockAppointments.forEach(a => {
-      if (a.date) {
-        const month = a.date.slice(0, 7); // yyyy-mm
-        if (!monthMap[month]) monthMap[month] = new Set();
-        monthMap[month].add(a.patient);
-      }
-    });
-    // Tạo mảng 6 tháng gần nhất
-    const now = new Date();
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const m = d.toISOString().slice(0, 7);
-      months.push(m);
-    }
-    return months.map(month => ({
-      month,
-      count: monthMap[month] ? monthMap[month].size : 0
-    }));
-  }, []);
-
   return (
     <div className="dashboard-layout">
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="patients-content">
-          <h2>Patients</h2>
-          {/* Top section: stats/pie chart and patient growth chart side by side, then new patients box below */}
-          <div className="patients-dashboard-stack">
-            <div className="patients-dashboard-row">
-              <div className="patients-stats-card">
-                <div className="patients-stat-item patients-stat-total">Total<br/><span className="patients-stat-number">{stats.total}</span></div>
-                <div className="patients-stat-item patients-stat-chronic">Chronic<br/><span className="patients-stat-number">{stats.chronic}</span></div>
-                <div className="patients-stat-item patients-stat-new">New<br/><span className="patients-stat-number">{stats.newThisMonth}</span></div>
-                <div className="patients-pie-wrap">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart className="patients-pie-chart">
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={55} paddingAngle={2} >
-                        {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={pieColors[idx]} />)}
-                      </Pie>
-                      <Tooltip formatter={pieTooltipFormatter} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  {/* Legend dưới pie chart */}
-                  <div className="patients-pie-legend">
-                    <span className="patients-pie-legend-chronic">&#9679; Chronic</span>
-                    <span className="patients-pie-legend-new">&#9679; New</span>
-                    <span className="patients-pie-legend-other">&#9679; Other</span>
-                  </div>
-                </div>
-              </div>
-              {/* Patient Growth by Month chart to the right, same height */}
-              <div className="patients-growth-card" ref={growthRef}>
-                <div className="patients-growth-title">Patient Growth by Month</div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={patientGrowthData} margin={{top:8,right:16,left:0,bottom:8}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.35)" />
-                    <XAxis dataKey="month" tick={{fontSize:13}} tickFormatter={formatMonthLabel} />
-                    <YAxis allowDecimals={false} tick={{fontSize:13}} />
-                    <Tooltip formatter={growthTooltipFormatter} labelFormatter={formatMonthLabel} />
-                    <Bar dataKey="count" fill="var(--brand-500)" radius={[8,8,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+        <main id="main-content" tabIndex="-1" className="patients-content">
+          <section className="care-workspace-hero patients-workspace-hero">
+            <div className="care-workspace-copy">
+              <span className="care-eyebrow"><FaHeartbeat aria-hidden="true" /> Longitudinal care intelligence</span>
+              <h1>Know who needs care <em>before they ask.</em></h1>
+              <p>Turn patient history, chronic conditions and visit gaps into a prioritized outreach workflow your care team can act on now.</p>
+              <div className="care-hero-actions">
+                <button type="button" className="care-action-primary" onClick={() => outreachRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                  Open outreach queue <FaArrowRight aria-hidden="true" />
+                </button>
+                <button type="button" className="care-action-secondary" onClick={handleAdd}><FaUserPlus aria-hidden="true" /> Add patient</button>
               </div>
             </div>
-            {/* New Patients This Month box - prominent, colored, with icon */}
-            <div className="patients-new-card">
-              <span className="patients-new-title">
-                <span role="img" aria-label="new-patient" className="patients-new-icon">👤</span>
-                New Patients This Month
-              </span>
-              <span className="patients-new-value">{stats.newThisMonth}</span>
+            <div className="care-workspace-metrics" aria-label="Patient care priorities">
+              <article className="is-critical"><span>High priority</span><b>{riskCohorts.high.count || 'Clear'}</b><small>{riskCohorts.high.count ? 'Requires 24h review' : 'No urgent review queue'}</small></article>
+              <article><span>Care gaps</span><b>{careGapCount || 'Clear'}</b><small>{careGapCount ? 'No visit in 90+ days' : 'Continuity up to date'}</small></article>
+              <article><span>Patient histories</span><b>{stats.total || '—'}</b><small>{stats.chronic} with documented conditions</small></article>
             </div>
+          </section>
+          <h2 className="care-sr-only">Patients</h2>
+          {workspaceNotice && <div className="care-notice" role="status"><FaCheckCircle aria-hidden="true" /> {workspaceNotice}</div>}
+          <div className="care-section-heading">
+            <div><span>Patient operations</span><h3>Patient access desk</h3></div>
+            <small>{dataOrigin}</small>
           </div>
+          <section className="patients-access-desk" ref={growthRef} aria-label="Patient access actions">
+            <div className="patients-access-actions">
+              <button type="button" onClick={handleAdd}><FaUserPlus aria-hidden="true" /><span><b>Register patient</b><small>Create identity, contact and consent record</small></span><FaArrowRight aria-hidden="true" /></button>
+              <button type="button" onClick={() => searchInputRef.current?.focus()}><FaSearch aria-hidden="true" /><span><b>Find patient</b><small>Search the governed longitudinal registry</small></span><FaArrowRight aria-hidden="true" /></button>
+              <button type="button" onClick={() => outreachRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><FaPhoneAlt aria-hidden="true" /><span><b>Recover care gaps</b><small>Open the clinician-reviewed outreach queue</small></span><FaArrowRight aria-hidden="true" /></button>
+            </div>
+            <div className="patients-access-worklist">
+              <div className="patients-access-head"><span>Next patients to review</span><small>{stats.total} registered · {stats.newThisMonth} new this month</small></div>
+              {outreachQueue.slice(0, 3).map((row) => (
+                <article key={`access-${row.id}`}>
+                  <span className={`patients-access-risk is-${row.riskBand}`}>{row.riskBand}</span>
+                  <div><b>{row.name}</b><small>{row.outreachPriority} · last visit {row.lastVisit || 'not recorded'}</small></div>
+                  <button type="button" onClick={() => {
+                    const patient = patientList.find((item) => Number(item.id) === Number(row.id));
+                    if (patient) handleView(patient);
+                  }}>Open 360°</button>
+                </article>
+              ))}
+              {outreachQueue.length === 0 && <div className="patients-access-empty"><FaCheckCircle aria-hidden="true" /><span><b>No escalated patient tasks</b><small>Use Find patient or register a new patient to continue.</small></span></div>}
+            </div>
+          </section>
           <div className="patients-search-row">
             {/* Filter summary/info block to fill whitespace */}
             <div className="patients-filter-summary">
-              <span role="img" aria-label="filter" className="patients-filter-icon">🔎</span>
+              <FaSearch aria-hidden="true" className="patients-filter-icon" />
               <div className="patients-filter-content">
                 <div className="patients-filter-title">Filters</div>
                 <div className="patients-filter-values">
@@ -455,22 +447,65 @@ export default function Patients() {
           </div>
 
           <section className="patients-risk-section" ref={riskRef}>
-            <h3>Precision Patient Risk Cohorts</h3>
+            <div className="patients-section-title-row">
+              <div>
+                <span>Transparent operations model</span>
+                <h3>Patient review cohorts</h3>
+              </div>
+              <small>{intelligence?.model?.id || 'preview-rules'} · non-diagnostic</small>
+            </div>
             <div className="patients-risk-grid">
               <article>
-                <span>High Risk</span>
+                <span>High priority</span>
                 <b>{riskCohorts.high.count}</b>
-                <small>Avg score: {riskCohorts.high.avg}</small>
+                <small>Avg {riskCohorts.high.avg} · confidence {riskCohorts.high.confidence || 0}%</small>
               </article>
               <article>
-                <span>Medium Risk</span>
+                <span>Medium priority</span>
                 <b>{riskCohorts.medium.count}</b>
-                <small>Avg score: {riskCohorts.medium.avg}</small>
+                <small>Avg {riskCohorts.medium.avg} · confidence {riskCohorts.medium.confidence || 0}%</small>
               </article>
               <article>
-                <span>Low Risk</span>
+                <span>Low priority</span>
                 <b>{riskCohorts.low.count}</b>
-                <small>Avg score: {riskCohorts.low.avg}</small>
+                <small>Avg {riskCohorts.low.avg} · confidence {riskCohorts.low.confidence || 0}%</small>
+              </article>
+            </div>
+            <p className="patients-model-note"><FaShieldAlt aria-hidden="true" /> {intelligence?.model?.limitation || 'Operational prioritization only. A clinician must review every score before action.'}</p>
+          </section>
+
+          <section className="patients-data-fabric" aria-labelledby="health-data-fabric-title">
+            <div className="patients-section-title-row">
+              <div>
+                <span>HealthTech architecture</span>
+                <h3 id="health-data-fabric-title">Clinical data fabric</h3>
+              </div>
+              <small>SQL transaction core + document read model</small>
+            </div>
+            <div className="patients-data-fabric-grid">
+              <article>
+                <FaDatabase aria-hidden="true" />
+                <span>Identity completeness</span>
+                <b>{intelligence?.dataQuality?.identityCompleteness ?? 0}%</b>
+                <small>Analytics consent: {intelligence?.dataQuality?.analyticsConsentCoverage ?? 0}% · identity fields governed</small>
+              </article>
+              <article>
+                <FaExchangeAlt aria-hidden="true" />
+                <span>FHIR event mirror</span>
+                <b>{intelligence?.interoperability?.fhirReadModel?.connected ? 'LIVE' : 'READY'}</b>
+                <small>{intelligence?.interoperability?.fhirReadModel?.documents ?? 0} privacy-minimized documents</small>
+              </article>
+              <article>
+                <FaShieldAlt aria-hidden="true" />
+                <span>Coded clinical records</span>
+                <b>{intelligence?.dataQuality?.codedClinicalRecords ?? 0}</b>
+                <small>{intelligence?.dataQuality?.terminologyValidatedRecords ?? 0} records matched to the ICD-10 registry</small>
+              </article>
+              <article>
+                <FaDna aria-hidden="true" />
+                <span>Molecular profiles</span>
+                <b>{intelligence?.interoperability?.genomics?.profiles ?? 0}</b>
+                <small>{intelligence?.interoperability?.genomics?.status === 'available' ? 'Governed omics data available' : 'Not loaded · never inferred'}</small>
               </article>
             </div>
           </section>
@@ -484,6 +519,7 @@ export default function Patients() {
                     <th>Rank</th>
                     <th>Patient</th>
                     <th>Risk Score</th>
+                    <th>Confidence</th>
                     <th>Band</th>
                     <th>Last Visit</th>
                     <th>ETA</th>
@@ -493,17 +529,30 @@ export default function Patients() {
                 <tbody>
                   {outreachQueue.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>No medium/high-risk patients in current filter scope.</td>
+                      <td colSpan={8}>No medium/high-risk patients in current cohort.</td>
                     </tr>
                   ) : outreachQueue.map((row) => (
                     <tr key={`outreach-${row.id}`}>
                       <td>{row.queueRank}</td>
                       <td>{row.name}</td>
                       <td>{row.riskScore}</td>
+                      <td>{row.confidence ?? '—'}%</td>
                       <td><span className={`patient-badge ${row.riskBand === 'high' ? 'patient-badge-elderly' : 'patient-badge-chronic'}`}>{row.riskBand}</span></td>
                       <td>{row.lastVisit}</td>
                       <td>{row.etaHours}h</td>
-                      <td>{row.outreachPriority}</td>
+                      <td>
+                        <div className="patient-outreach-action">
+                          <small>{row.outreachPriority}</small>
+                          <button
+                            type="button"
+                            className={outreachLedger[row.id] ? 'is-complete' : ''}
+                            onClick={() => handleOutreach(row)}
+                            disabled={Boolean(outreachLedger[row.id])}
+                          >
+                            {outreachLedger[row.id] ? <><FaCheckCircle aria-hidden="true" /> Contacted</> : <><FaPhoneAlt aria-hidden="true" /> Start outreach</>}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -525,9 +574,10 @@ export default function Patients() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRecent.map((p) => {
-                  const history = getHistory(p.name);
-                  const lastVisit = history.length ? history[history.length - 1].date : '-';
+                {paginatedPatients.map((p) => {
+                  const history = getHistory(p);
+                  const completedHistory = getCompletedHistory(p);
+                  const lastVisit = completedHistory[0]?.date || '-';
                   // Badge logic
                   let badge = null;
                   if (p.warning && p.warning.toLowerCase().includes('chronic')) badge = <span className="patient-badge patient-badge-chronic">Chronic</span>;
@@ -542,7 +592,7 @@ export default function Patients() {
                       <td className="patients-name-cell" onClick={() => handleView(p)}>{p.name} {badge}</td>
                       <td>{p.email}</td>
                       <td>{p.phone}</td>
-                      <td>{history.length}</td>
+                      <td>{completedHistory.length}</td>
                       <td>{lastVisit}</td>
                       <td className="patients-actions-cell">
                         <button title="View Record" className="patients-btn patients-btn-view" onClick={() => handleView(p)}><DetailsIcon />View</button>
@@ -558,6 +608,17 @@ export default function Patients() {
               </tbody>
             </table>
           </div>
+          <nav className="patients-pagination" aria-label="Patient table pagination">
+            <span>
+              Showing {filteredRecent.length ? (tablePage - 1) * tablePageSize + 1 : 0}
+              –{Math.min(tablePage * tablePageSize, filteredRecent.length)} of {filteredRecent.length}
+            </span>
+            <div>
+              <button type="button" onClick={() => setTablePage((page) => Math.max(1, page - 1))} disabled={tablePage === 1}>Previous</button>
+              <b>Page {tablePage} / {tablePageCount}</b>
+              <button type="button" onClick={() => setTablePage((page) => Math.min(tablePageCount, page + 1))} disabled={tablePage === tablePageCount}>Next</button>
+            </div>
+          </nav>
           <div className="patients-features">
             <div className="patients-feature-block">
               <div className="patients-feature-title">Patient Management</div>

@@ -9,6 +9,51 @@ import { getAppointmentsForAnalyticsAPI } from '../services/appointments';
 import { askReportsAssistantAPI, getReportsAnalyticsAPI } from '../services/reports';
 import { formatDateByOptions, formatNumber, formatTimeShort } from '../utils/i18nFormat';
 import {
+  FaArrowRight,
+  FaChartLine,
+  FaDownload,
+  FaShieldAlt,
+} from 'react-icons/fa';
+import ClinicalDataFabric from '../features/reports/components/ClinicalDataFabric';
+import ReportsWorkspaceNav from '../features/reports/components/ReportsWorkspaceNav';
+import {
+  DEFAULT_DTX_POLICY,
+  EMAIL_RECIPIENT_PROFILES,
+  REPORTS_ALERT_RULES_KEY,
+  REPORTS_DTX_APPROVAL_KEY,
+  REPORTS_DTX_POLICY_HISTORY_KEY,
+  REPORTS_DTX_POLICY_KEY,
+  REPORTS_EMAIL_RECIPIENTS_KEY,
+  REPORTS_GOVERNANCE_AUDIT_KEY,
+  REPORTS_OUTREACH_CAPACITY_KEY,
+  REPORTS_PRESETS_KEY,
+  REPORTS_SCENARIO_HISTORY_KEY,
+} from '../features/reports/reportConfig';
+import {
+  buildAuditChainEntryHash,
+  clamp,
+  escapeHtml,
+  fromBase64,
+  getPreviousWeekRange,
+  hashString,
+  mapAppointmentStatusToFhir,
+  normalizeStatus,
+  toBase64,
+  toDateOnly,
+  toHex,
+  validateDtxPolicyPayload,
+} from '../features/reports/reportUtils';
+import {
+  buildAnomalySignals,
+  buildCohortSeries,
+  buildComparisonMetrics,
+  buildDataQuality,
+  buildMonthlySeries,
+  buildPatientRiskTrajectory,
+  buildPrecisionCareRows,
+} from '../features/reports/reportAnalytics';
+import './CareWorkspace.css';
+import {
   ResponsiveContainer,
   CartesianGrid,
   XAxis,
@@ -22,211 +67,6 @@ import {
   BarChart,
 } from 'recharts';
 
-const normalizeStatus = (status) => String(status || 'pending').toLowerCase();
-
-const monthKey = (dateValue) => (dateValue ? dateValue.slice(0, 7) : 'Unknown');
-
-const rollingStats = (arr, idx, field, windowSize = 3) => {
-  const start = Math.max(0, idx - windowSize + 1);
-  const values = arr.slice(start, idx + 1).map((item) => Number(item[field] || 0));
-  const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
-  const variance = values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / values.length;
-  return { avg, std: Math.sqrt(variance) };
-};
-
-const REPORTS_PRESETS_KEY = 'reports_filter_presets_v1';
-const REPORTS_ALERT_RULES_KEY = 'reports_alert_rules_v1';
-const REPORTS_SCENARIO_HISTORY_KEY = 'reports_scenario_history_v1';
-const REPORTS_EMAIL_RECIPIENTS_KEY = 'reports_email_recipients_v1';
-const REPORTS_DTX_POLICY_KEY = 'reports_dtx_policy_v1';
-const REPORTS_DTX_POLICY_HISTORY_KEY = 'reports_dtx_policy_history_v1';
-const REPORTS_OUTREACH_CAPACITY_KEY = 'reports_outreach_capacity_v1';
-const REPORTS_DTX_APPROVAL_KEY = 'reports_dtx_approval_v1';
-const REPORTS_GOVERNANCE_AUDIT_KEY = 'reports_governance_audit_v1';
-
-const DEFAULT_DTX_POLICY = {
-  sessionWeights: {
-    completion: 0.35,
-    engagement: 0.25,
-    riskInverse: 0.4,
-  },
-  riskThresholds: {
-    high: 70,
-    medium: 45,
-  },
-  expectedGainOffset: 45,
-  expectedGainClamp: {
-    min: 2,
-    max: 48,
-  },
-};
-
-const validateDtxPolicyPayload = (payload) => {
-  const completion = Number(payload?.sessionWeights?.completion ?? NaN);
-  const engagement = Number(payload?.sessionWeights?.engagement ?? NaN);
-  const riskInverse = Number(payload?.sessionWeights?.riskInverse ?? NaN);
-  const sumWeights = completion + engagement + riskInverse;
-
-  if ([completion, engagement, riskInverse].some((v) => Number.isNaN(v) || v < 0 || v > 1)) {
-    throw new Error('sessionWeights must be numbers between 0 and 1');
-  }
-  if (Math.abs(sumWeights - 1) > 0.0001) {
-    throw new Error('sessionWeights must sum to 1.0');
-  }
-
-  const high = Number(payload?.riskThresholds?.high ?? NaN);
-  const medium = Number(payload?.riskThresholds?.medium ?? NaN);
-  if ([high, medium].some((v) => Number.isNaN(v) || v < 0 || v > 100) || medium > high) {
-    throw new Error('riskThresholds are invalid');
-  }
-
-  const gainOffset = Number(payload?.expectedGainOffset ?? NaN);
-  if (Number.isNaN(gainOffset)) {
-    throw new Error('expectedGainOffset is invalid');
-  }
-
-  const clampMin = Number(payload?.expectedGainClamp?.min ?? NaN);
-  const clampMax = Number(payload?.expectedGainClamp?.max ?? NaN);
-  if ([clampMin, clampMax].some((v) => Number.isNaN(v)) || clampMin > clampMax) {
-    throw new Error('expectedGainClamp is invalid');
-  }
-
-  return {
-    sessionWeights: {
-      completion,
-      engagement,
-      riskInverse,
-    },
-    riskThresholds: {
-      high,
-      medium,
-    },
-    expectedGainOffset: gainOffset,
-    expectedGainClamp: {
-      min: clampMin,
-      max: clampMax,
-    },
-  };
-};
-
-const toDateOnly = (value) => {
-  if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const computeDeltaPercent = (current, previous) => {
-  if (!previous) return current ? 100 : 0;
-  return Math.round(((current - previous) / previous) * 100);
-};
-
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-
-const hashString = (value) => {
-  return String(value || '').split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-};
-
-const buildAuditChainEntryHash = (chainIndex, previousHash, row) => {
-  const payload = JSON.stringify({ index: chainIndex, previousHash, row });
-  const primary = hashString(payload).toString(16).padStart(8, '0');
-  const secondary = hashString(`${payload}|${chainIndex - 1}`).toString(16).padStart(8, '0');
-  return `${primary}${secondary}`;
-};
-
-const escapeHtml = (value) => {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-};
-
-const inferPatientRiskBand = (row) => {
-  const service = String(row.service || '').toLowerCase();
-  const status = String(row.status || '').toLowerCase();
-  const fee = Number(row.fee || 0);
-
-  let riskScore = 0;
-  if (status === 'cancelled') riskScore += 2;
-  if (status === 'pending') riskScore += 1;
-  if (service.includes('cardio') || service.includes('neuro')) riskScore += 2;
-  if (service.includes('derma') || service.includes('general')) riskScore += 0.5;
-  if (fee >= 250000) riskScore += 1;
-
-  if (riskScore >= 3) return 'high';
-  if (riskScore >= 1.5) return 'medium';
-  return 'low';
-};
-
-const getPreviousWeekRange = () => {
-  const now = new Date();
-  const day = now.getDay();
-  const daysSinceMonday = (day + 6) % 7;
-
-  const thisWeekMonday = new Date(now);
-  thisWeekMonday.setHours(0, 0, 0, 0);
-  thisWeekMonday.setDate(now.getDate() - daysSinceMonday);
-
-  const previousMonday = new Date(thisWeekMonday);
-  previousMonday.setDate(thisWeekMonday.getDate() - 7);
-
-  const previousSunday = new Date(previousMonday);
-  previousSunday.setDate(previousMonday.getDate() + 6);
-
-  return {
-    from: previousMonday.toISOString().slice(0, 10),
-    to: previousSunday.toISOString().slice(0, 10),
-  };
-};
-
-const EMAIL_RECIPIENT_PROFILES = {
-  leadership: {
-    label: 'Leadership (CEO/COO/Ops Lead)',
-    to: ['ceo@clinic.local'],
-    cc: ['coo@clinic.local', 'opslead@clinic.local'],
-  },
-  operations: {
-    label: 'Operations Board',
-    to: ['opslead@clinic.local'],
-    cc: ['scheduler@clinic.local', 'carequality@clinic.local'],
-  },
-  finance: {
-    label: 'Finance and Strategy',
-    to: ['finance@clinic.local'],
-    cc: ['controller@clinic.local', 'strategy@clinic.local'],
-  },
-};
-
-const mapAppointmentStatusToFhir = (status) => {
-  if (status === 'completed') return 'fulfilled';
-  if (status === 'cancelled') return 'cancelled';
-  return 'booked';
-};
-
-const toBase64 = (bytes) => {
-  let binary = '';
-  bytes.forEach((value) => {
-    binary += String.fromCharCode(value);
-  });
-  return btoa(binary);
-};
-
-const toHex = (bytes) => {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-};
-
-const fromBase64 = (value) => {
-  const binary = atob(value || '');
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-};
-
 function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -238,6 +78,7 @@ function Reports() {
   const [apiAppointments, setApiAppointments] = useState([]);
   const [loadingSource, setLoadingSource] = useState(true);
   const [sourceLabel, setSourceLabel] = useState('Loading...');
+  const [reportView, setReportView] = useState('overview');
   const [remoteAnalytics, setRemoteAnalytics] = useState(null);
   const [copilotQuestion, setCopilotQuestion] = useState('Where is the biggest operational risk this month?');
   const [copilotAnswer, setCopilotAnswer] = useState('');
@@ -584,91 +425,11 @@ function Reports() {
     return Array.from(set);
   }, [appointments]);
 
-  const monthlySeries = useMemo(() => {
-    const grouped = {};
-    filteredAppointments.forEach((a) => {
-      const key = monthKey(a.date);
-      if (!grouped[key]) {
-        grouped[key] = {
-          month: key,
-          appointments: 0,
-          revenue: 0,
-          completed: 0,
-          cancelled: 0,
-          patients: new Set(),
-        };
-      }
-      grouped[key].appointments += 1;
-      grouped[key].revenue += Number(a.fee || 0);
-      grouped[key].patients.add(a.patient);
-      if (a.status === 'completed') grouped[key].completed += 1;
-      if (a.status === 'cancelled') grouped[key].cancelled += 1;
-    });
-
-    const base = Object.values(grouped)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .map((item) => ({
-        month: item.month,
-        appointments: item.appointments,
-        revenue: item.revenue,
-        uniquePatients: item.patients.size,
-        completionRate: item.appointments ? Math.round((item.completed / item.appointments) * 100) : 0,
-        cancellationRate: item.appointments ? Math.round((item.cancelled / item.appointments) * 100) : 0,
-      }));
-
-    return base.map((item, idx) => {
-      const { avg, std } = rollingStats(base, idx, 'appointments', 3);
-      const lower = Math.max(0, avg - std * 1.28);
-      const upper = avg + std * 1.28;
-      return {
-        ...item,
-        trend: Number(avg.toFixed(2)),
-        lower: Number(lower.toFixed(2)),
-        upper: Number(upper.toFixed(2)),
-        band: Number((upper - lower).toFixed(2)),
-      };
-    });
-  }, [filteredAppointments]);
+  const monthlySeries = useMemo(() => buildMonthlySeries(filteredAppointments), [filteredAppointments]);
 
   const effectiveMonthlySeries = remoteAnalytics?.monthlySeries?.length ? remoteAnalytics.monthlySeries : monthlySeries;
 
-  const cohortSeries = useMemo(() => {
-    const ordered = [...filteredAppointments].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const seenPatients = new Set();
-    const bucket = {};
-
-    ordered.forEach((a) => {
-      const m = monthKey(a.date);
-      if (!bucket[m]) {
-        bucket[m] = {
-          month: m,
-          newSet: new Set(),
-          returningSet: new Set(),
-        };
-      }
-
-      if (seenPatients.has(a.patient)) {
-        bucket[m].returningSet.add(a.patient);
-      } else {
-        bucket[m].newSet.add(a.patient);
-      }
-      seenPatients.add(a.patient);
-    });
-
-    return Object.values(bucket)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .map((item) => {
-        const newPatients = item.newSet.size;
-        const returningPatients = item.returningSet.size;
-        const total = newPatients + returningPatients;
-        return {
-          month: item.month,
-          newPatients,
-          returningPatients,
-          retentionRate: total ? Math.round((returningPatients / total) * 100) : 0,
-        };
-      });
-  }, [filteredAppointments]);
+  const cohortSeries = useMemo(() => buildCohortSeries(filteredAppointments), [filteredAppointments]);
 
   const effectiveCohortSeries = remoteAnalytics?.cohortSeries?.length ? remoteAnalytics.cohortSeries : cohortSeries;
 
@@ -677,62 +438,7 @@ function Reports() {
 
   const anomalySignals = useMemo(() => {
     if (remoteAnalytics?.anomalies?.length) return remoteAnalytics.anomalies;
-    if (!filteredAppointments.length) return [];
-
-    const monthlyByPair = {};
-    filteredAppointments.forEach((a) => {
-      const key = `${a.doctor}__${a.service}`;
-      const month = monthKey(a.date);
-      if (!monthlyByPair[key]) monthlyByPair[key] = {};
-      monthlyByPair[key][month] = (monthlyByPair[key][month] || 0) + 1;
-    });
-
-    const items = [];
-    Object.entries(monthlyByPair).forEach(([pair, monthMap]) => {
-      const points = Object.entries(monthMap).sort((a, b) => a[0].localeCompare(b[0]));
-      if (points.length < 3) return;
-
-      const values = points.map((p) => p[1]);
-      const latest = values[values.length - 1];
-      const base = values.slice(0, -1);
-      const mean = base.reduce((s, v) => s + v, 0) / base.length;
-      const variance = base.reduce((s, v) => s + (v - mean) ** 2, 0) / base.length;
-      const std = Math.sqrt(variance);
-      const z = std > 0 ? (latest - mean) / std : 0;
-
-      if (z >= 1.5 && latest >= 3) {
-        const [doctor, service] = pair.split('__');
-        items.push({
-          type: 'demand-spike',
-          doctor,
-          service,
-          detail: `${doctor} - ${service} jumped to ${latest} visits this month (z=${z.toFixed(2)}).`,
-          severity: z >= 2 ? 'high' : 'medium',
-        });
-      }
-    });
-
-    const byDoctor = {};
-    filteredAppointments.forEach((a) => {
-      if (!byDoctor[a.doctor]) byDoctor[a.doctor] = { total: 0, cancelled: 0 };
-      byDoctor[a.doctor].total += 1;
-      if (a.status === 'cancelled') byDoctor[a.doctor].cancelled += 1;
-    });
-
-    Object.entries(byDoctor).forEach(([doctor, stat]) => {
-      const rate = stat.total ? (stat.cancelled / stat.total) * 100 : 0;
-      if (stat.total >= 3 && rate > 30) {
-        items.push({
-          type: 'cancellation-risk',
-          doctor,
-          service: 'all services',
-          detail: `${doctor} has cancellation rate ${rate.toFixed(0)}% (${stat.cancelled}/${stat.total}).`,
-          severity: rate > 45 ? 'high' : 'medium',
-        });
-      }
-    });
-
-    return items.slice(0, 6);
+    return buildAnomalySignals(filteredAppointments);
   }, [filteredAppointments, remoteAnalytics]);
 
   const aiNotes = useMemo(() => {
@@ -758,74 +464,7 @@ function Reports() {
     return notes;
   }, [effectiveMonthlySeries, latestCohort, remoteAnalytics]);
 
-  const comparisonMetrics = useMemo(() => {
-    const scoped = appointments.filter((app) => {
-      const matchDoctor = !doctorFilter || app.doctor === doctorFilter;
-      const matchService = !serviceFilter || app.service === serviceFilter;
-      const matchStatus = !statusFilter || app.status === statusFilter;
-      return matchDoctor && matchService && matchStatus;
-    });
-
-    if (!scoped.length) {
-      return {
-        current: { appointments: 0, revenue: 0, completionRate: 0, patients: 0 },
-        previous: { appointments: 0, revenue: 0, completionRate: 0, patients: 0 },
-        deltas: { appointments: 0, revenue: 0, completionRate: 0, patients: 0 },
-      };
-    }
-
-    const dates = scoped.map((item) => toDateOnly(item.date)).filter(Boolean).sort((a, b) => a - b);
-    if (!dates.length) {
-      return {
-        current: { appointments: 0, revenue: 0, completionRate: 0, patients: 0 },
-        previous: { appointments: 0, revenue: 0, completionRate: 0, patients: 0 },
-        deltas: { appointments: 0, revenue: 0, completionRate: 0, patients: 0 },
-      };
-    }
-
-    const currentFrom = toDateOnly(dateRange.from) || dates[0];
-    const currentTo = toDateOnly(dateRange.to) || dates[dates.length - 1];
-    const windowDays = Math.max(1, Math.floor((currentTo - currentFrom) / 86400000) + 1);
-    const previousTo = new Date(currentFrom);
-    previousTo.setDate(previousTo.getDate() - 1);
-    const previousFrom = new Date(previousTo);
-    previousFrom.setDate(previousFrom.getDate() - (windowDays - 1));
-
-    const inRange = (item, from, to) => {
-      const d = toDateOnly(item.date);
-      if (!d) return false;
-      return d >= from && d <= to;
-    };
-
-    const currentRows = scoped.filter((item) => inRange(item, currentFrom, currentTo));
-    const previousRows = scoped.filter((item) => inRange(item, previousFrom, previousTo));
-
-    const summarize = (rows) => {
-      const completion = rows.length
-        ? Math.round((rows.filter((r) => r.status === 'completed').length / rows.length) * 100)
-        : 0;
-      return {
-        appointments: rows.length,
-        revenue: rows.reduce((sum, row) => sum + Number(row.fee || 0), 0),
-        completionRate: completion,
-        patients: new Set(rows.map((row) => row.patient)).size,
-      };
-    };
-
-    const current = summarize(currentRows);
-    const previous = summarize(previousRows);
-
-    return {
-      current,
-      previous,
-      deltas: {
-        appointments: computeDeltaPercent(current.appointments, previous.appointments),
-        revenue: computeDeltaPercent(current.revenue, previous.revenue),
-        completionRate: current.completionRate - previous.completionRate,
-        patients: computeDeltaPercent(current.patients, previous.patients),
-      },
-    };
-  }, [appointments, dateRange.from, dateRange.to, doctorFilter, serviceFilter, statusFilter]);
+  const comparisonMetrics = useMemo(() => buildComparisonMetrics({ appointments, dateRange, doctorFilter, serviceFilter, statusFilter }), [appointments, dateRange, doctorFilter, serviceFilter, statusFilter]);
 
   const alertSignals = useMemo(() => {
     const signals = [];
@@ -877,50 +516,7 @@ function Reports() {
     };
   }, [latestMonth, simulator]);
 
-  const dataQuality = useMemo(() => {
-    const total = filteredAppointments.length;
-    if (!total) {
-      return {
-        score: 100,
-        grade: 'A',
-        missingService: 0,
-        missingFee: 0,
-        invalidDate: 0,
-        duplicatePairs: 0,
-        issues: [],
-      };
-    }
-
-    const missingService = filteredAppointments.filter((a) => !String(a.service || '').trim()).length;
-    const missingFee = filteredAppointments.filter((a) => Number(a.fee || 0) <= 0).length;
-    const invalidDate = filteredAppointments.filter((a) => Number.isNaN(new Date(a.date).getTime())).length;
-
-    const keyCount = new Map();
-    filteredAppointments.forEach((a) => {
-      const key = `${a.patient}__${a.doctor}__${a.date}`;
-      keyCount.set(key, (keyCount.get(key) || 0) + 1);
-    });
-    const duplicatePairs = Array.from(keyCount.values()).filter((count) => count > 1).length;
-
-    const weightedErrorRate = (
-      (missingService / total) * 0.35 +
-      (missingFee / total) * 0.35 +
-      (invalidDate / total) * 0.2 +
-      (duplicatePairs / total) * 0.1
-    );
-
-    const score = Math.round(clamp(100 - weightedErrorRate * 100, 0, 100));
-    const grade = score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : 'D';
-
-    const issues = [];
-    if (missingService) issues.push(`${missingService} appointment(s) missing service label.`);
-    if (missingFee) issues.push(`${missingFee} appointment(s) have missing or zero fee.`);
-    if (invalidDate) issues.push(`${invalidDate} appointment(s) contain invalid date format.`);
-    if (duplicatePairs) issues.push(`${duplicatePairs} duplicate patient-doctor-date pair(s) detected.`);
-    if (!issues.length) issues.push('Dataset is clean under current quality rules.');
-
-    return { score, grade, missingService, missingFee, invalidDate, duplicatePairs, issues };
-  }, [filteredAppointments]);
+  const dataQuality = useMemo(() => buildDataQuality(filteredAppointments), [filteredAppointments]);
 
   const autonomousPlaybook = useMemo(() => {
     const items = [];
@@ -1056,93 +652,9 @@ function Reports() {
       .slice(0, 8);
   }, [filteredAppointments, anomalySignals]);
 
-  const patientRiskTrajectory = useMemo(() => {
-    const grouped = {};
-    filteredAppointments.forEach((item) => {
-      const month = monthKey(item.date);
-      if (!grouped[month]) grouped[month] = { month, high: 0, medium: 0, low: 0 };
-      const risk = inferPatientRiskBand(item);
-      grouped[month][risk] += 1;
-    });
+  const patientRiskTrajectory = useMemo(() => buildPatientRiskTrajectory(filteredAppointments), [filteredAppointments]);
 
-    return Object.values(grouped)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .map((row) => {
-        const total = row.high + row.medium + row.low;
-        return {
-          ...row,
-          riskPressure: total ? Math.round((row.high / total) * 100) : 0,
-        };
-      });
-  }, [filteredAppointments]);
-
-  const precisionCareRows = useMemo(() => {
-    const grouped = {};
-    filteredAppointments.forEach((item) => {
-      const patient = item.patient || 'Unknown Patient';
-      if (!grouped[patient]) {
-        grouped[patient] = {
-          patient,
-          appointments: 0,
-          completed: 0,
-          cancelled: 0,
-          pending: 0,
-          totalFee: 0,
-          lastDate: '',
-          lastService: 'General Service',
-          lastDoctor: 'Unknown Doctor',
-        };
-      }
-      const row = grouped[patient];
-      row.appointments += 1;
-      row.totalFee += Number(item.fee || 0);
-      if (item.status === 'completed') row.completed += 1;
-      if (item.status === 'cancelled') row.cancelled += 1;
-      if (item.status === 'pending' || item.status === 'booked') row.pending += 1;
-
-      if (!row.lastDate || String(item.date || '') > row.lastDate) {
-        row.lastDate = String(item.date || '');
-        row.lastService = item.service || 'General Service';
-        row.lastDoctor = item.doctor || 'Unknown Doctor';
-      }
-    });
-
-    const now = new Date();
-    return Object.values(grouped).map((row) => {
-      const avgFee = row.appointments ? Math.round(row.totalFee / row.appointments) : 0;
-      const completionRate = row.appointments ? Math.round((row.completed / row.appointments) * 100) : 0;
-
-      const lastDate = row.lastDate ? new Date(row.lastDate) : null;
-      const careGapDays = lastDate && !Number.isNaN(lastDate.getTime())
-        ? Math.max(0, Math.floor((now.getTime() - lastDate.getTime()) / 86400000))
-        : 0;
-
-      const serviceRisk = /cardio|neuro|onc|resp/i.test(row.lastService) ? 12 : 4;
-      const gapRisk = careGapDays > 60 ? 20 : careGapDays > 30 ? 12 : 4;
-      const riskScore = Math.round(clamp(
-        row.cancelled * 22 + row.pending * 14 + gapRisk + serviceRisk + (avgFee > 250000 ? 8 : 4),
-        0,
-        100
-      ));
-
-      const riskBand = riskScore >= 70 ? 'high' : riskScore >= 45 ? 'medium' : 'low';
-      const nextBestAction = riskBand === 'high'
-        ? 'Activate nurse outreach + telehealth follow-up in 24h'
-        : riskBand === 'medium'
-          ? 'Send adherence reminder and schedule next checkpoint'
-          : 'Keep preventive care cadence and monitor monthly';
-
-      return {
-        ...row,
-        avgFee,
-        completionRate,
-        careGapDays,
-        riskScore,
-        riskBand,
-        nextBestAction,
-      };
-    }).sort((a, b) => b.riskScore - a.riskScore);
-  }, [filteredAppointments]);
+  const precisionCareRows = useMemo(() => buildPrecisionCareRows(filteredAppointments), [filteredAppointments]);
 
   const precisionTwinSummary = useMemo(() => {
     if (!precisionCareRows.length) {
@@ -3493,13 +3005,37 @@ function Reports() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="reports-content">
+        <main id="main-content" tabIndex="-1" className={`reports-content reports-view-${reportView}`}>
           <div className="reports-card">
-            <h2 className="reports-title reports-title-lg">Clinic Reports</h2>
-            <div className="reports-source-chip">{loadingSource ? 'Loading data source...' : sourceLabel}</div>
-            <div className="reports-filters reports-filters-start">
+            <section className="care-workspace-hero reports-workspace-hero">
+              <div className="care-workspace-copy">
+                <span className="care-eyebrow"><FaChartLine aria-hidden="true" /> Executive decision intelligence</span>
+                <h1>Decisions, <em>not dashboards.</em></h1>
+                <p>Translate clinic performance into a board-ready operating narrative, compare scenarios and govern every recommendation with evidence.</p>
+                <div className="care-hero-actions">
+                  <button type="button" className="care-action-primary" onClick={() => executiveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    Open command center <FaArrowRight aria-hidden="true" />
+                  </button>
+                  <button type="button" className="care-action-secondary" onClick={handleExportBoard}><FaDownload aria-hidden="true" /> Export board pack</button>
+                </div>
+              </div>
+              <div className="care-workspace-metrics" aria-label="Executive report priorities">
+                <article className={executiveSnapshot.riskIndex >= 65 ? 'is-critical' : ''}><span>Risk index</span><b>{executiveSnapshot.riskIndex}</b><small>{executiveSnapshot.decision}</small></article>
+                <article><span>Growth index</span><b>{executiveSnapshot.growthIndex}</b><small>Opportunity signal</small></article>
+                <article><span>Execution</span><b>{executiveSnapshot.executionIndex}</b><small><FaShieldAlt aria-hidden="true" /> Readiness score</small></article>
+              </div>
+            </section>
+            <ReportsWorkspaceNav activeView={reportView} onChange={setReportView} />
+            <h2 className="care-sr-only">Clinic Reports</h2>
+            <details className="reports-scope-disclosure">
+              <summary>
+                <span><b>Analysis scope</b><small>{doctorFilter || serviceFilter || statusFilter || dateRange.from || dateRange.to ? 'Custom filters active' : 'All governed clinic data'}</small></span>
+                <span className="reports-source-chip">{loadingSource ? 'Loading data source...' : sourceLabel}</span>
+              </summary>
+              <div className="reports-scope-body">
+              <div className="reports-filters reports-filters-start">
               <button className="reports-export-btn" onClick={handleExportCsv}>
-                <span className="reports-export-icon">⬇️</span> Export CSV
+                <FaDownload className="reports-export-icon" aria-hidden="true" /> Export CSV
               </button>
               <label>From: <input type="date" value={dateRange.from} onChange={e => setDateRange(r => ({...r, from: e.target.value}))} /></label>
               <label>To: <input type="date" value={dateRange.to} onChange={e => setDateRange(r => ({...r, to: e.target.value}))} /></label>
@@ -3553,6 +3089,8 @@ function Reports() {
                 </div>
               )}
             </section>
+              </div>
+            </details>
 
             <div className="reports-summary-row reports-summary-row-wide">
               <div className="reports-summary-card reports-summary-card-primary">
@@ -3566,32 +3104,18 @@ function Reports() {
                 </ul>
               </div>
               <div className="reports-summary-card reports-summary-card-secondary">
-                <div className="reports-summary-title reports-summary-title-lg">Doctor KPI</div>
-                <div className="reports-table-scroll">
-                  <table className="reports-kpi-table reports-kpi-table-md">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Specialty</th>
-                        <th>Appointments</th>
-                        <th>Revenue</th>
-                        <th>Completion</th>
-                        <th>Rating</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {doctorStats.map(doc => (
-                        <tr key={doc.id}>
-                          <td>{doc.name}</td>
-                          <td>{doc.specialty}</td>
-                          <td>{doc.appointments}</td>
-                          <td>{formatNumber(doc.revenue)} đ</td>
-                          <td>{doc.completionRate}%</td>
-                          <td>{doc.rating}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="reports-summary-title reports-summary-title-lg">Care team pulse</div>
+                <div className="reports-doctor-pulse">
+                  {[...doctorStats].sort((a, b) => b.appointments - a.appointments).slice(0, 4).map((doc) => (
+                    <article key={doc.id}>
+                      <div><b>{doc.name}</b><small>{doc.specialty}</small></div>
+                      <span>{doc.appointments} visits</span>
+                      <div className="reports-pulse-meter" aria-label={`${doc.completionRate}% completion`}>
+                        <i style={{ width: `${doc.completionRate}%` }} />
+                      </div>
+                      <strong>{doc.completionRate}%</strong>
+                    </article>
+                  ))}
                 </div>
               </div>
               <div className="reports-summary-card reports-summary-card-compare">
@@ -3628,6 +3152,8 @@ function Reports() {
                 </div>
               </div>
             </div>
+
+            <ClinicalDataFabric />
 
             <section className="reports-executive" ref={executiveRef}>
               <h3 className="reports-chart-title">Executive Command Center</h3>
@@ -4307,59 +3833,42 @@ function Reports() {
               {autoScheduleRecommendations.length === 0 ? (
                 <p className="reports-anomaly-empty">Not enough data to generate doctor scheduling guidance.</p>
               ) : (
-                <div className="reports-table-scroll">
-                  <table className="reports-kpi-table reports-kpi-table-lg">
-                    <thead>
-                      <tr>
-                        <th>Doctor</th>
-                        <th>Priority</th>
-                        <th>Recommended Slots</th>
-                        <th>Telehealth Share</th>
-                        <th>Follow-up Buffer</th>
-                        <th>Focus</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {autoScheduleRecommendations.map((row) => (
-                        <tr key={row.doctor}>
-                          <td>{row.doctor}</td>
-                          <td>
-                            <span className={`severity-badge ${row.priorityScore >= 70 ? 'severity-high' : 'severity-medium'}`}>
-                              {row.priorityScore}
-                            </span>
-                          </td>
-                          <td>{row.recommendedSlots}</td>
-                          <td>{row.telehealthShare}%</td>
-                          <td>{row.followupBuffer}%</td>
-                          <td>{row.serviceFocus || 'General mix'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="reports-recommendation-grid">
+                  {autoScheduleRecommendations.slice(0, 6).map((row) => (
+                    <article key={row.doctor}>
+                      <header><div><span>Recommended roster</span><h4>{row.doctor}</h4></div><b>{row.priorityScore}</b></header>
+                      <p>{row.serviceFocus || 'General care mix'}</p>
+                      <footer><span><b>{row.recommendedSlots}</b> slots</span><span><b>{row.telehealthShare}%</b> virtual</span><span><b>{row.followupBuffer}%</b> follow-up</span></footer>
+                    </article>
+                  ))}
                 </div>
               )}
             </section>
 
             <section className="reports-trajectory" ref={trajectoryRef}>
               <h3 className="reports-chart-title">Patient Risk Trajectory</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={patientRiskTrajectory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" allowDecimals={false} />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} unit="%" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="high" stackId="risk" fill="var(--danger-fg)" name="High risk" />
-                  <Bar yAxisId="left" dataKey="medium" stackId="risk" fill="var(--warning-fg)" name="Medium risk" />
-                  <Bar yAxisId="left" dataKey="low" stackId="risk" fill="var(--success-fg)" name="Low risk" />
-                  <Line yAxisId="right" type="monotone" dataKey="riskPressure" stroke="var(--brand-700)" strokeWidth={2.5} name="Risk pressure" />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <p className="reports-section-intro">Operational follow-up risk derived from appointment history—not a diagnostic score. Monthly cohorts are directly labelled without a misleading dual axis.</p>
+              <div className="reports-risk-timeline">
+                {patientRiskTrajectory.slice(-4).map((month) => {
+                  const total = month.high + month.medium + month.low;
+                  return (
+                    <article key={month.month}>
+                      <header><b>{month.month}</b><span>{total} patients</span></header>
+                      <div className="reports-risk-band" aria-label={`${month.high} high, ${month.medium} medium, ${month.low} low risk patients`}>
+                        <i className="risk-high" style={{ flexGrow: month.high }} />
+                        <i className="risk-medium" style={{ flexGrow: month.medium }} />
+                        <i className="risk-low" style={{ flexGrow: month.low }} />
+                      </div>
+                      <footer><span>High {month.high}</span><span>Medium {month.medium}</span><span>Low {month.low}</span></footer>
+                    </article>
+                  );
+                })}
+              </div>
             </section>
 
             <section className="reports-precision-twin" ref={precisionRef}>
               <h3 className="reports-chart-title">Precision Health Risk Twin</h3>
+              <p className="reports-section-intro">Prioritization support for care coordination only. Scores are explainable operational heuristics and require clinical review.</p>
               <div className="reports-executive-grid">
                 <div className="reports-executive-card">
                   <span>High-Risk Patients</span>
@@ -4374,35 +3883,14 @@ function Reports() {
                   <b>{precisionTwinSummary.averageRiskScore}</b>
                 </div>
               </div>
-              <div className="reports-table-scroll">
-                <table className="reports-kpi-table reports-kpi-table-lg">
-                  <thead>
-                    <tr>
-                      <th>Patient</th>
-                      <th>Risk Score</th>
-                      <th>Band</th>
-                      <th>Care Gap (days)</th>
-                      <th>Completion</th>
-                      <th>Next Best Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {precisionCareRows.slice(0, 8).map((row) => (
-                      <tr key={row.patient}>
-                        <td>{row.patient}</td>
-                        <td><b>{row.riskScore}</b></td>
-                        <td>
-                          <span className={`severity-badge ${row.riskBand === 'high' ? 'severity-high' : 'severity-medium'}`}>
-                            {row.riskBand}
-                          </span>
-                        </td>
-                        <td>{row.careGapDays}</td>
-                        <td>{row.completionRate}%</td>
-                        <td className="reports-cell-left">{row.nextBestAction}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="reports-priority-cards">
+                {precisionCareRows.slice(0, 4).map((row, index) => (
+                  <article key={row.patient}>
+                    <span className="reports-priority-rank">0{index + 1}</span>
+                    <div><h4>{row.patient}</h4><p>{row.nextBestAction}</p></div>
+                    <dl><div><dt>Risk</dt><dd>{row.riskScore}</dd></div><div><dt>Care gap</dt><dd>{row.careGapDays}d</dd></div><div><dt>Completion</dt><dd>{row.completionRate}%</dd></div></dl>
+                  </article>
+                ))}
               </div>
             </section>
 
@@ -4419,73 +3907,30 @@ function Reports() {
                   </article>
                 ))}
               </div>
-              <div className="reports-table-scroll">
-                <table className="reports-kpi-table reports-kpi-table-md">
-                  <thead>
-                    <tr>
-                      <th>Severity</th>
-                      <th>Patient</th>
-                      <th>Signal</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {remoteMonitoringAlerts.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="reports-cell-left">No active RPM alerts in current cohort.</td>
-                      </tr>
-                    ) : remoteMonitoringAlerts.map((alert) => (
-                      <tr key={alert.id}>
-                        <td><span className={`severity-badge severity-${alert.severity}`}>{alert.severity}</span></td>
-                        <td>{alert.patient}</td>
-                        <td>{alert.signal}</td>
-                        <td className="reports-cell-left">{alert.action}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="reports-alert-stream">
+                {remoteMonitoringAlerts.length === 0 ? (
+                  <p className="reports-anomaly-empty">No active RPM alerts in current cohort.</p>
+                ) : remoteMonitoringAlerts.slice(0, 4).map((alert) => (
+                  <article key={alert.id}>
+                    <span className={`severity-badge severity-${alert.severity}`}>{alert.severity}</span>
+                    <div><h4>{alert.patient}</h4><p>{alert.signal}</p></div>
+                    <strong>{alert.action}</strong>
+                  </article>
+                ))}
               </div>
             </section>
 
             <section className="reports-pathway-orchestrator" ref={pathwayRef}>
               <h3 className="reports-chart-title">Clinical Pathway Orchestrator</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={clinicalPathwayRows.slice(0, 6)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="service" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="pathwayMaturity" fill="var(--brand-500)" name="Pathway maturity" />
-                  <Bar dataKey="automationCoverage" fill="var(--success-fg)" name="Automation" />
-                  <Bar dataKey="telehealthFit" fill="var(--warning-fg)" name="Telehealth fit" />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="reports-table-scroll">
-                <table className="reports-kpi-table reports-kpi-table-lg">
-                  <thead>
-                    <tr>
-                      <th>Service</th>
-                      <th>Maturity</th>
-                      <th>Automation</th>
-                      <th>Telehealth Fit</th>
-                      <th>Completion</th>
-                      <th>Cancellation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clinicalPathwayRows.map((row) => (
-                      <tr key={row.service}>
-                        <td>{row.service}</td>
-                        <td><b>{row.pathwayMaturity}</b></td>
-                        <td>{row.automationCoverage}%</td>
-                        <td>{row.telehealthFit}%</td>
-                        <td>{row.completionRate}%</td>
-                        <td>{row.cancellationRate}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <p className="reports-section-intro">Operational maturity—not clinical efficacy—ranked by a transparent composite of completion, automation coverage and telehealth suitability.</p>
+              <div className="reports-pathway-cards">
+                {clinicalPathwayRows.slice(0, 4).map((row) => (
+                  <article key={row.service}>
+                    <header><div><span>Clinical service</span><h4>{row.service}</h4></div><b>{row.pathwayMaturity}<small>/100</small></b></header>
+                    <div className="reports-pathway-step"><span>01 Intake</span><i /><span>02 Care</span><i /><span>03 Follow-up</span></div>
+                    <footer><span>Automation <b>{row.automationCoverage}%</b></span><span>Telehealth <b>{row.telehealthFit}%</b></span><span>Completion <b>{row.completionRate}%</b></span></footer>
+                  </article>
+                ))}
               </div>
             </section>
 
@@ -4511,33 +3956,14 @@ function Reports() {
                   Replay mode active: showing {replayFeedEvents.length}/{fhirSubscriptionFeed.length} events.
                 </p>
               )}
-              <div className="reports-table-scroll">
-                <table className="reports-kpi-table reports-kpi-table-lg">
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Topic</th>
-                      <th>Event</th>
-                      <th>Patient</th>
-                      <th>Doctor</th>
-                      <th>Resource</th>
-                      <th>Severity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {replayFeedEvents.map((event) => (
-                      <tr key={event.id}>
-                        <td>{event.eventTime.slice(11, 19)}</td>
-                        <td>{event.topic}</td>
-                        <td>{event.eventType}</td>
-                        <td>{event.patient}</td>
-                        <td>{event.doctor}</td>
-                        <td><code>{event.payloadRef}</code></td>
-                        <td><span className={`severity-badge severity-${event.severity}`}>{event.severity}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="reports-event-timeline" aria-live="polite">
+                {replayFeedEvents.slice(0, 6).map((event) => (
+                  <article key={event.id}>
+                    <time>{event.eventTime.slice(11, 19)}</time>
+                    <i className={`event-${event.severity}`} aria-hidden="true" />
+                    <div><h4>{event.eventType}</h4><p>{event.patient} · {event.doctor}</p><code>{event.payloadRef}</code></div>
+                  </article>
+                ))}
               </div>
             </section>
 
@@ -4900,7 +4326,7 @@ function Reports() {
             </section>
 
             <div className="reports-appointments-section">
-              <h3 className="reports-appointments-title">Appointments Table</h3>
+              <div className="reports-raw-data-head"><div><span>Governed source records</span><h3 className="reports-appointments-title">Appointments sample</h3></div><small>Showing {Math.min(12, filteredAppointments.length)} of {filteredAppointments.length}; export CSV for the complete result.</small></div>
               <div className="reports-table-scroll">
                 <table className="reports-kpi-table reports-kpi-table-xl">
                   <thead>
@@ -4914,7 +4340,7 @@ function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAppointments.map((a,i) => (
+                    {filteredAppointments.slice(0, 12).map((a,i) => (
                       <tr key={i}>
                         <td>{a.date}</td>
                         <td>{a.patient}</td>

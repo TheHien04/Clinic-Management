@@ -1,0 +1,24 @@
+# Local Apple Silicon override. Keep docker-compose.yml on SQL Server 2022 for
+# CI/production; SQL Edge provides the compatible T-SQL runtime on arm64 Macs.
+services:
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    platform: linux/arm64
+    # Azure SQL Edge versions used on Apple Silicon still read SA_PASSWORD.
+    # Keep it aligned with MSSQL_SA_PASSWORD used by SQL Server 2022.
+    environment:
+      SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'echo >/dev/tcp/127.0.0.1/1433' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  backend:
+    environment:
+      NODE_ENV: development

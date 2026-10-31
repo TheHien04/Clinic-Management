@@ -44,13 +44,22 @@
   font-weight: 500;
   color: var(--brand-500);
 }
-.patient-modal-body input {
+.patient-modal-body input,
+.patient-modal-body select {
   width: 100%;
   padding: 7px 10px;
   border-radius: 6px;
   border: 1.2px solid var(--surface-border);
   margin-top: 4px;
   font-size: 1rem;
+}
+.patient-form-error {
+  border: 1px solid var(--danger-300, #f1a6a6);
+  border-radius: 8px;
+  background: var(--danger-50, #fff1f1);
+  color: var(--danger-700, #9f2727);
+  padding: 10px 12px;
+  font-size: 0.9rem;
 }
 .patient-modal-actions {
   margin-top: 18px;

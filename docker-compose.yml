@@ -13,6 +13,9 @@ services:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Create .env from .env.docker.example}"
     ports:
       - "1433:1433"
+    volumes:
+      - clinic_sql_data:/var/opt/mssql
+      - clinic_backup_data:/var/opt/mssql/backups
     healthcheck:
       test:
         [
@@ -29,12 +32,30 @@ services:
     ports:
       - "6379:6379"
 
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ClinicManagement
+      MONGO_INITDB_ROOT_USERNAME: clinic_root
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}"
+    volumes:
+      - clinic_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$$MONGO_INITDB_ROOT_USERNAME\" --password \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      NODE_ENV: production
+      # This compose file is the local development stack. Production should
+      # inject NODE_ENV=production from the deployment manifest/secret store.
+      NODE_ENV: development
       PORT: "5055"
       PORT_FALLBACK_ATTEMPTS: "1"
       DB_SERVER: sqlserver
@@ -43,17 +64,30 @@ services:
       DB_NAME: ClinicManagement
       DB_ENCRYPT: "false"
       DB_TRUST_SERVER_CERTIFICATE: "true"
+      # Local SQL Edge uses a self-signed certificate. Production deployments
+      # must remove this override and use a trusted encrypted connection.
+      ALLOW_INSECURE_DB_TLS: "true"
+      ALLOW_INSECURE_HTTP: "true"
       CORS_ORIGIN: http://localhost:5173,http://localhost:8080
       SOCKET_CORS_ORIGIN: http://localhost:5173,http://localhost:8080
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in .env}"
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env}"
       REDIS_URL: redis://redis:6379
+      ENABLE_MONGO: "true"
+      MONGO_URI: "mongodb://clinic_root:${MONGO_ROOT_PASSWORD}@mongo:27017/?authSource=admin"
+      MONGO_DB_NAME: ClinicManagement
       SKIP_DB_MIGRATE: "${SKIP_DB_MIGRATE:-0}"
     depends_on:
       sqlserver:
         condition: service_healthy
       redis:
         condition: service_started
+      mongo:
+        condition: service_healthy
+    volumes:
+      # SQL Server writes verified backups here; the API job only triggers and
+      # verifies them through the same shared volume.
+      - clinic_backup_data:/var/opt/mssql/backups
     ports:
       - "5055:5055"
 
@@ -68,3 +102,8 @@ services:
       - backend
     ports:
       - "8080:80"
+
+volumes:
+  clinic_sql_data:
+  clinic_backup_data:
+  clinic_mongo_data:

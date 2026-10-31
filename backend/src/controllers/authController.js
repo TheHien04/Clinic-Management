@@ -7,14 +7,26 @@ import { executeQuery } from '../config/database.js';
 import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { isValidEmail, validatePassword, sanitizeInput } from '../utils/validators.js';
 import { cleanupAuthAuditEvents, recordAuthAuditEvent } from '../utils/securityAudit.js';
+import crypto from 'crypto';
 
 const MFA_REQUIRED_ROLES = new Set(['admin', 'manager', 'supervisor']);
 const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const mfaChallengeStore = new Map();
+const REFRESH_COOKIE_NAME = 'clinic_refresh_token';
+
+const setRefreshCookie = (res, refreshToken) => {
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: '/api/auth',
+  });
+};
 
 const issueMfaChallenge = (user) => {
-  const ticket = `mfa-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const ticket = `mfa-${crypto.randomUUID()}`;
+  const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS).toISOString();
 
   mfaChallengeStore.set(ticket, {
@@ -25,6 +37,8 @@ const issueMfaChallenge = (user) => {
     email: user.Email,
     role: user.Role,
     name: user.FullName,
+    clinicId: user.ClinicID || null,
+    attemptsRemaining: 5,
   });
 
   return {
@@ -43,7 +57,6 @@ const popMfaChallenge = (ticket) => {
     return null;
   }
 
-  mfaChallengeStore.delete(ticket);
   return challenge;
 };
 
@@ -69,7 +82,9 @@ const auditAuthEvent = (req, payload) => {
  */
 export const register = async (req, res) => {
   try {
-    const { email, password, name, role = 'user' } = req.body;
+    const { email, password, name } = req.body;
+    // Public registration must never be able to mint a privileged account.
+    const role = 'patient';
 
     // Validate input
     if (!email || !password || !name) {
@@ -130,13 +145,13 @@ export const register = async (req, res) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Insert new user
     const insertQuery = `
-      INSERT INTO Accounts (Email, Password, FullName, Role, CreatedDate)
-      OUTPUT INSERTED.AccountID, INSERTED.Email, INSERTED.FullName, INSERTED.Role
-      VALUES (@email, @password, @name, @role, GETDATE())
+      INSERT INTO Accounts (Email, Password, FullName, Role, ClinicID, CreatedDate)
+      OUTPUT INSERTED.AccountID, INSERTED.Email, INSERTED.FullName, INSERTED.Role, INSERTED.ClinicID
+      VALUES (@email, @password, @name, @role, (SELECT TOP (1) ClinicID FROM Clinics ORDER BY ClinicID), GETDATE())
     `;
 
     const result = await executeQuery(insertQuery, {
@@ -148,16 +163,36 @@ export const register = async (req, res) => {
 
     const user = result.recordset[0];
 
+    // Create a portal profile only when this email is not already attached to
+    // a clinic-managed patient. Existing records require staff verification
+    // before linking to prevent account takeover by email matching alone.
+    await executeQuery(
+      `INSERT INTO Patients (FullName, Email, AccountID, ClinicID, CreatedDate)
+       SELECT @name, @email, @accountId, @clinicId, GETDATE()
+       WHERE NOT EXISTS (
+         SELECT 1 FROM Patients WHERE LOWER(Email) = LOWER(@email)
+       )`,
+      {
+        name: sanitizeInput(name),
+        email: sanitizeInput(email),
+        accountId: user.AccountID,
+        clinicId: user.ClinicID,
+      },
+    );
+
     // Generate tokens
     const token = generateToken({
       id: user.AccountID,
       email: user.Email,
-      role: user.Role
+      role: user.Role,
+      clinicId: user.ClinicID,
     });
 
     const refreshToken = generateRefreshToken({
       id: user.AccountID
     });
+
+    setRefreshCookie(res, refreshToken);
 
     auditAuthEvent(req, {
       eventType: 'register',
@@ -175,10 +210,10 @@ export const register = async (req, res) => {
           id: user.AccountID,
           email: user.Email,
           name: user.FullName,
-          role: user.Role
+          role: user.Role,
+          clinicId: user.ClinicID,
         },
-        token,
-        refreshToken
+        token
       }
     });
   } catch (error) {
@@ -220,7 +255,7 @@ export const login = async (req, res) => {
 
     // Find user
     const query = `
-      SELECT AccountID, Email, Password, FullName, Role 
+      SELECT AccountID, Email, Password, FullName, Role, ClinicID
       FROM Accounts 
       WHERE Email = @email AND IsActive = 1
     `;
@@ -288,12 +323,15 @@ export const login = async (req, res) => {
     const token = generateToken({
       id: user.AccountID,
       email: user.Email,
-      role: user.Role
+      role: user.Role,
+      clinicId: user.ClinicID,
     });
 
     const refreshToken = generateRefreshToken({
       id: user.AccountID
     });
+
+    setRefreshCookie(res, refreshToken);
 
     auditAuthEvent(req, {
       eventType: 'login',
@@ -311,10 +349,10 @@ export const login = async (req, res) => {
           id: user.AccountID,
           email: user.Email,
           name: user.FullName,
-          role: user.Role
+          role: user.Role,
+          clinicId: user.ClinicID,
         },
-        token,
-        refreshToken
+        token
       }
     });
   } catch (error) {
@@ -366,6 +404,10 @@ export const verifyMfa = async (req, res) => {
     }
 
     if (String(challenge.code) !== String(otpCode).trim()) {
+      challenge.attemptsRemaining -= 1;
+      if (challenge.attemptsRemaining <= 0) {
+        mfaChallengeStore.delete(String(mfaTicket));
+      }
       auditAuthEvent(req, {
         eventType: 'login_mfa_verify',
         eventStatus: 'failed',
@@ -379,15 +421,20 @@ export const verifyMfa = async (req, res) => {
       });
     }
 
+    mfaChallengeStore.delete(String(mfaTicket));
+
     const token = generateToken({
       id: challenge.accountId,
       email: challenge.email,
       role: challenge.role,
+      clinicId: challenge.clinicId,
     });
 
     const refreshToken = generateRefreshToken({
       id: challenge.accountId,
     });
+
+    setRefreshCookie(res, refreshToken);
 
     auditAuthEvent(req, {
       eventType: 'login_mfa_verify',
@@ -406,9 +453,9 @@ export const verifyMfa = async (req, res) => {
           email: challenge.email,
           name: challenge.name,
           role: challenge.role,
+          clinicId: challenge.clinicId,
         },
         token,
-        refreshToken,
       },
     });
   } catch (error) {
@@ -431,7 +478,10 @@ export const verifyMfa = async (req, res) => {
  */
 export const refreshToken = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Refresh credentials are accepted only from the HttpOnly cookie. Keeping
+    // them out of JSON payloads prevents application JavaScript, browser
+    // extensions and request logging from handling the long-lived credential.
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
 
     if (!refreshToken) {
       auditAuthEvent(req, {
@@ -450,7 +500,7 @@ export const refreshToken = async (req, res) => {
 
     // Generate new access token
     const query = `
-      SELECT AccountID, Email, Role 
+      SELECT AccountID, Email, Role, ClinicID
       FROM Accounts 
       WHERE AccountID = @id AND IsActive = 1
     `;
@@ -475,8 +525,15 @@ export const refreshToken = async (req, res) => {
     const newToken = generateToken({
       id: user.AccountID,
       email: user.Email,
-      role: user.Role
+      role: user.Role,
+      clinicId: user.ClinicID,
     });
+
+    // Rotate the refresh token on every successful use. JWT signature and
+    // expiry still provide validation, while rotation reduces the useful
+    // lifetime of a copied browser cookie.
+    const rotatedRefreshToken = generateRefreshToken({ id: user.AccountID });
+    setRefreshCookie(res, rotatedRefreshToken);
 
     auditAuthEvent(req, {
       eventType: 'refresh_token',
@@ -507,13 +564,78 @@ export const refreshToken = async (req, res) => {
 };
 
 /**
+ * Clear the browser refresh session.
+ * POST /api/auth/logout
+ */
+export const logout = (req, res) => {
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/auth',
+  });
+
+  return res.json({ success: true, message: 'Logged out successfully' });
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    const validation = validatePassword(newPassword);
+
+    if (!currentPassword || !validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: currentPassword ? validation.message : 'Current password is required',
+      });
+    }
+
+    const result = await executeQuery(
+      'SELECT AccountID, Password FROM Accounts WHERE AccountID = @id AND IsActive = 1',
+      { id: req.user.id },
+    );
+    const account = result.recordset[0];
+
+    if (!account || !(await bcrypt.compare(currentPassword, account.Password))) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    if (await bcrypt.compare(newPassword, account.Password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from the current password',
+      });
+    }
+
+    const password = await bcrypt.hash(newPassword, 12);
+    await executeQuery(
+      'UPDATE Accounts SET Password = @password, UpdatedDate = GETDATE() WHERE AccountID = @id',
+      { id: req.user.id, password },
+    );
+
+    auditAuthEvent(req, {
+      eventType: 'password_change',
+      eventStatus: 'success',
+      email: req.user.email,
+      accountId: req.user.id,
+      reason: 'password_updated',
+    });
+
+    return res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ success: false, message: 'Unable to change password' });
+  }
+};
+
+/**
  * Get current user profile
  * GET /api/auth/me
  */
 export const getMe = async (req, res) => {
   try {
     const query = `
-      SELECT AccountID, Email, FullName, Role, PhoneNumber, CreatedDate
+      SELECT AccountID, Email, FullName, Role, PhoneNumber, ClinicID, CreatedDate
       FROM Accounts 
       WHERE AccountID = @id AND IsActive = 1
     `;
@@ -537,6 +659,7 @@ export const getMe = async (req, res) => {
         name: user.FullName,
         role: user.Role,
         phone: user.PhoneNumber,
+        clinicId: user.ClinicID,
         createdDate: user.CreatedDate
       }
     });

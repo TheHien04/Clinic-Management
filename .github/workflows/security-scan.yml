@@ -6,12 +6,14 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/security-scan.yml'
   pull_request:
     paths:
       - 'backend/**'
       - 'frontend/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/security-scan.yml'
 
 jobs:
@@ -27,6 +29,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install root dependencies
+        run: npm ci
+
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
@@ -35,10 +40,13 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Run backend security audit (critical threshold)
-        working-directory: backend
-        run: npm audit --audit-level=critical
+      - name: Run root security audit (high threshold)
+        run: npm audit --audit-level=high
 
-      - name: Run frontend security audit (critical threshold)
+      - name: Run backend security audit (high threshold)
+        working-directory: backend
+        run: npm audit --audit-level=high
+
+      - name: Run frontend security audit (high threshold)
         working-directory: frontend
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=high

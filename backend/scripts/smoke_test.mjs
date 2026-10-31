@@ -8,9 +8,10 @@ const HEALTH_RETRY_MS = 1000;
 
 const randomSuffix = Date.now().toString(36);
 const registerPayload = {
-  email: `smoke_admin_${randomSuffix}@example.com`,
-  name: `Smoke Admin ${randomSuffix}`,
+  email: `smoke_patient_${randomSuffix}@example.com`,
+  name: `Smoke Patient ${randomSuffix}`,
   password: 'SmokePass123!',
+  // Deliberately hostile input: public registration must ignore this value.
   role: 'admin',
 };
 
@@ -65,7 +66,7 @@ const waitForHealth = async () => {
 };
 
 const runFlow = async () => {
-  await ensureOk(
+  const registrationBody = await ensureOk(
     await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,20 +75,22 @@ const runFlow = async () => {
     'auth/register',
   );
 
-  const loginBody = await ensureOk(
-    await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: registerPayload.email,
-        password: registerPayload.password,
-      }),
+  if (registrationBody?.data?.user?.role !== 'patient') {
+    throw new Error('Public registration was able to request a privileged role');
+  }
+
+  const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: process.env.SMOKE_ADMIN_EMAIL || 'admin@clinic.local',
+      password: process.env.SMOKE_ADMIN_PASSWORD || 'Admin@123',
     }),
-    'auth/login',
-  );
+  });
+  const loginBody = await ensureOk(loginResponse, 'auth/login');
 
   let accessToken = loginBody?.data?.token;
-  let refreshToken = loginBody?.data?.refreshToken;
+  let refreshCookie = loginResponse.headers.get('set-cookie') || '';
 
   if (loginBody?.data?.mfaRequired && loginBody?.data?.mfaTicket) {
     const otpCode = String(loginBody?.data?.mfaHint || '').replace('Development OTP:', '').trim();
@@ -96,37 +99,36 @@ const runFlow = async () => {
       throw new Error('MFA challenge returned without usable OTP hint in smoke test mode');
     }
 
-    const verifyBody = await ensureOk(
-      await fetch(`${API_BASE_URL}/auth/mfa/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mfaTicket: loginBody.data.mfaTicket,
-          otpCode,
-        }),
+    const verifyResponse = await fetch(`${API_BASE_URL}/auth/mfa/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mfaTicket: loginBody.data.mfaTicket,
+        otpCode,
       }),
-      'auth/mfa/verify',
-    );
+    });
+    const verifyBody = await ensureOk(verifyResponse, 'auth/mfa/verify');
 
     accessToken = verifyBody?.data?.token;
-    refreshToken = verifyBody?.data?.refreshToken;
+    refreshCookie = verifyResponse.headers.get('set-cookie') || '';
   }
 
-  if (!accessToken || !refreshToken) {
-    throw new Error('Missing accessToken/refreshToken in login response');
+  if (!accessToken || !refreshCookie) {
+    throw new Error('Missing access token or secure refresh cookie after login');
   }
 
   await ensureOk(
     await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      headers: { Cookie: refreshCookie.split(';')[0] },
     }),
     'auth/refresh',
   );
 
   const reportsBody = await ensureOk(
-    await fetch(`${API_BASE_URL}/reports/analytics`),
+    await fetch(`${API_BASE_URL}/reports/analytics`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
     'reports/analytics',
   );
 
@@ -144,6 +146,91 @@ const runFlow = async () => {
   if (!Array.isArray(staffBody?.data)) {
     throw new Error('Staff list response is not an array');
   }
+
+  // Exercise a complete governed care workflow with a privileged actor. The
+  // legacy E2E files previously attempted these writes with a patient token,
+  // which correctly fails RBAC and therefore never represented a valid flow.
+  const authHeaders = { Authorization: `Bearer ${accessToken}` };
+  const doctorsBody = await ensureOk(
+    await fetch(`${API_BASE_URL}/doctors?limit=1`, { headers: authHeaders }),
+    'doctors list',
+  );
+  const doctorId = Number(doctorsBody?.data?.[0]?.DoctorID || doctorsBody?.data?.[0]?.id || 0);
+  if (!doctorId) {
+    throw new Error('Expected at least one seeded doctor for care-workflow smoke test');
+  }
+
+  const patientBody = await ensureOk(
+    await fetch(`${API_BASE_URL}/patients`, {
+      method: 'POST',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: `Smoke Care Patient ${randomSuffix}`,
+        dateOfBirth: '1990-01-01',
+        gender: 'other',
+        phoneNumber: `09${String(Date.now()).slice(-8)}`,
+        email: `smoke_care_${randomSuffix}@example.com`,
+        address: 'Synthetic test address',
+        medicalHistory: 'Synthetic smoke-test record; not a real patient',
+      }),
+    }),
+    'patients create',
+  );
+  const patientId = Number(patientBody?.data?.PatientID || patientBody?.data?.id || 0);
+  if (!patientId) {
+    throw new Error('Patient create response did not include an identifier');
+  }
+
+  const appointmentDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const now = Date.now();
+  const appointmentTime = `17:${String(Math.floor(now / 1000) % 60).padStart(2, '0')}:${String(now % 60).padStart(2, '0')}`;
+  const appointmentBody = await ensureOk(
+    await fetch(`${API_BASE_URL}/appointments`, {
+      method: 'POST',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patientId,
+        doctorId,
+        appointmentDate,
+        appointmentTime,
+        notes: 'Synthetic end-to-end care workflow',
+      }),
+    }),
+    'appointments create',
+  );
+  const appointmentId = Number(appointmentBody?.data?.AppointmentID || appointmentBody?.data?.id || 0);
+  if (!appointmentId) {
+    throw new Error('Appointment create response did not include an identifier');
+  }
+
+  await ensureOk(
+    await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, { headers: authHeaders }),
+    'appointments get',
+  );
+  await ensureOk(
+    await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, {
+      method: 'PUT',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'confirmed', notes: 'Smoke workflow confirmed' }),
+    }),
+    'appointments update',
+  );
+  await ensureOk(
+    await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, {
+      method: 'DELETE',
+      headers: authHeaders,
+    }),
+    'appointments delete',
+  );
+  await ensureOk(
+    await fetch(`${API_BASE_URL}/patients/${patientId}`, {
+      method: 'DELETE',
+      headers: authHeaders,
+    }),
+    'patients delete',
+  );
 
   const postureBody = await ensureOk(
     await fetch(`${API_BASE_URL}/innovation/security/posture`, {

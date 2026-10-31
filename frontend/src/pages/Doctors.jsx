@@ -25,37 +25,7 @@ function CalendarModal({ doctor, onClose }) {
     </div>
   );
 }
-// Mini KPI Bar Chart
-function MiniKPIBarChart({ doctors }) {
-  const data = doctors.map(d => ({
-    name: d.name.replace('Dr. ', ''),
-    kpi: d.kpi?.month ?? 0,
-  }));
-
-  const formatKpi = (value) => [`${value} appointments`, 'KPI'];
-
-  return (
-    <div className="doctors-kpi-wrap">
-      <div className="doctors-kpi-title">KPI Comparison (This Month)</div>
-      <div className="doctors-kpi-chart-box">
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.35)" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-            <Tooltip formatter={formatKpi} />
-            <Bar dataKey="kpi" fill="var(--brand-500)" radius={[6, 6, 0, 0]} barSize={20} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import DoctorRadarChart from '../components/RadarChart';
-import DoctorPieCharts from '../components/DoctorPieCharts';
 import AvatarIcon from '../components/AvatarIcon';
 import { EditIcon, DeleteIcon, DetailsIcon } from '../components/icons';
 import Toast from '../components/Toast';
@@ -69,6 +39,8 @@ import { useAppointmentContext } from '../contexts/AppointmentContext';
 import { applyDoctorsRebalanceAPI, getDoctorsIntelligenceAPI } from '../services/doctors';
 import { exportToCSV } from '../utils/exportUtils';
 import { formatTimeShort } from '../utils/i18nFormat';
+import { FaArrowRight, FaBalanceScale, FaHeartbeat, FaUserMd } from 'react-icons/fa';
+import './CareWorkspace.css';
 
 const REBALANCE_AUDIT_STORAGE_KEY = 'doctors_rebalance_audit_v1';
 const CRITICAL_ALERT_LEDGER_KEY = 'doctors_critical_alert_ledger_v1';
@@ -710,12 +682,39 @@ function Doctors() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="doctors-content">
+        <main id="main-content" tabIndex="-1" className="doctors-content">
           {loading && <Spinner />}
           <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
           <div className="doctors-panel">
-            {/* Mini KPI Bar Chart */}
-            <MiniKPIBarChart doctors={doctorList} />
+            <section className="care-workspace-hero doctors-workspace-hero">
+              <div className="care-workspace-copy">
+                <span className="care-eyebrow"><FaUserMd aria-hidden="true" /> Clinical workforce intelligence</span>
+                <h1>Balance capacity <em>before burnout becomes delay.</em></h1>
+                <p>See clinician load, detect pressure early and deploy explainable shift moves with a complete operational audit trail.</p>
+                <div className="care-hero-actions">
+                  <button type="button" className="care-action-primary" onClick={() => capacityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    Review capacity <FaArrowRight aria-hidden="true" />
+                  </button>
+                  <button type="button" className="care-action-secondary" onClick={() => rebalanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    <FaBalanceScale aria-hidden="true" /> Rebalance board
+                  </button>
+                </div>
+              </div>
+              <div className="care-workspace-metrics" aria-label="Clinical capacity priorities">
+                <article className="is-critical"><span>High burnout</span><b>{capacityCohorts.high.count}</b><small>Immediate load review</small></article>
+                <article><span>Active clinicians</span><b>{stats.active}</b><small>Available this cycle</small></article>
+                <article><span>Shift moves</span><b>{rebalanceRecommendations.length}</b><small>Explainable suggestions</small></article>
+              </div>
+            </section>
+            <div className="care-section-heading">
+              <div><span>Shift operations</span><h3>Clinical staffing desk</h3></div>
+              <small><FaHeartbeat aria-hidden="true" /> Live clinical operations</small>
+            </div>
+            <section className="doctors-action-desk" ref={chartsRef} aria-label="Clinical staffing actions">
+              <button type="button" onClick={handleAdd}><FaUserMd aria-hidden="true" /><span><b>Add clinician</b><small>Create profile and assign specialty</small></span><FaArrowRight aria-hidden="true" /></button>
+              <button type="button" onClick={() => { setStatusFilter('active'); setShowInactive(false); searchInputRef.current?.focus(); }}><FaHeartbeat aria-hidden="true" /><span><b>Find available coverage</b><small>Show active clinicians and search skills</small></span><FaArrowRight aria-hidden="true" /></button>
+              <button type="button" onClick={handleAutoBalanceShiftPlan}><FaBalanceScale aria-hidden="true" /><span><b>Resolve capacity pressure</b><small>Apply explainable appointment rebalancing</small></span><FaArrowRight aria-hidden="true" /></button>
+            </section>
             <h2 className="doctors-title">Doctors</h2>
             {/* Quick stats */}
             <div className="doctors-stats-row">
@@ -1009,7 +1008,7 @@ function Doctors() {
                         <td>{history.length}</td>
                         <td>{d.kpi?.month ?? 0}</td>
                         <td className="doctors-cell-center doctors-rating">
-                          {d.kpi?.rating ? `${d.kpi.rating} ⭐` : '-'}
+                          {d.kpi?.rating ? `${d.kpi.rating} / 5` : '-'}
                         </td>
                         <td className="doctors-cell-center">
                           <button title="View Reviews" className="doctors-btn-reviews" onClick={() => setModalDoctor({ ...d, history, showReviews: true })}>Reviews</button>
@@ -1045,21 +1044,6 @@ function Doctors() {
                 doctor={editDoctor}
               />
             )}
-            {/* Biểu đồ tổng quan bác sĩ */}
-            <div className="doctors-charts-row" ref={chartsRef}>
-              <div className="doctors-chart-card">
-                <div className="doctors-chart-title">Doctor Overview (Radar Chart)</div>
-                <DoctorRadarChart doctors={filtered.map(d => ({
-                  name: d.name,
-                  kpi: d.kpi,
-                  patients: Array.from(new Set(appointments.filter(a => a.doctor === d.name).map(a => a.patient))),
-                  appointments: appointments.filter(a => a.doctor === d.name).length
-                }))} />
-              </div>
-              <div className="doctors-chart-card">
-                <DoctorPieCharts doctors={filtered} />
-              </div>
-            </div>
           </div>
           <div className="doctors-info-row">
             <div className="doctors-info-card">
@@ -1104,7 +1088,7 @@ function DoctorModal({ doctor, onClose }) {
           <div><b>Specialty:</b> {Array.isArray(doctor.specialty) ? doctor.specialty.join(', ') : doctor.specialty || '-'}</div>
           <div><b>Status:</b> {doctor.status || 'active'}</div>
           <div><b>Contact:</b> {doctor.contact || '-'}</div>
-          <div><b>KPI (month):</b> {doctor.kpi?.month ?? 0} | <b>Rating:</b> {doctor.kpi?.rating ?? '-'} ⭐</div>
+          <div><b>KPI (month):</b> {doctor.kpi?.month ?? 0} | <b>Rating:</b> {doctor.kpi?.rating ?? '-'} / 5</div>
           <div><b>Schedule:</b> {doctor.schedule || '-'} <button className="doctors-calendar-btn" onClick={()=>setShowCalendar(true)}>View Calendar</button></div>
           <div><b>Status History:</b> {doctor.statusHistory?.join(' → ')}</div>
           <div><b>Reviews:</b> {doctor.reviews?.map((r,i)=>(<div key={i} className="doctors-review-item">“{r}”</div>))}</div>

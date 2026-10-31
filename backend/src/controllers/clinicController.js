@@ -7,7 +7,7 @@ import { executeQuery } from '../config/database.js';
 // Get all clinics
 export const getAllClinics = async (req, res) => {
   try {
-    const query = `SELECT * FROM clinics ORDER BY clinic_name`;
+    const query = `SELECT ClinicID AS clinic_id, ClinicName AS clinic_name, Address AS address, PhoneNumber AS phone, CreatedDate AS created_date FROM Clinics ORDER BY ClinicName`;
     const result = await executeQuery(query);
     
     res.json({
@@ -28,7 +28,7 @@ export const getAllClinics = async (req, res) => {
 export const getClinicById = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await executeQuery(`SELECT * FROM clinics WHERE clinic_id = @id`, { id });
+    const result = await executeQuery(`SELECT ClinicID AS clinic_id, ClinicName AS clinic_name, Address AS address, PhoneNumber AS phone, CreatedDate AS created_date FROM Clinics WHERE ClinicID = @id`, { id: Number(id) });
     
     if (result.recordset.length === 0) {
       return res.status(404).json({
@@ -64,8 +64,8 @@ export const createClinic = async (req, res) => {
     }
     
     const query = `
-      INSERT INTO clinics (clinic_name, address, phone)
-      OUTPUT INSERTED.*
+      INSERT INTO Clinics (ClinicName, Address, PhoneNumber)
+      OUTPUT INSERTED.ClinicID AS clinic_id, INSERTED.ClinicName AS clinic_name, INSERTED.Address AS address, INSERTED.PhoneNumber AS phone, INSERTED.CreatedDate AS created_date
       VALUES (@clinicName, @address, @phone)
     `;
     
@@ -93,16 +93,16 @@ export const updateClinic = async (req, res) => {
     const { clinicName, address, phone } = req.body;
     
     const query = `
-      UPDATE clinics
+      UPDATE Clinics
       SET 
-        clinic_name = COALESCE(@clinicName, clinic_name),
-        address = COALESCE(@address, address),
-        phone = @phone
-      OUTPUT INSERTED.*
-      WHERE clinic_id = @id
+        ClinicName = COALESCE(@clinicName, ClinicName),
+        Address = COALESCE(@address, Address),
+        PhoneNumber = @phone
+      OUTPUT INSERTED.ClinicID AS clinic_id, INSERTED.ClinicName AS clinic_name, INSERTED.Address AS address, INSERTED.PhoneNumber AS phone, INSERTED.CreatedDate AS created_date
+      WHERE ClinicID = @id
     `;
     
-    const result = await executeQuery(query, { id, clinicName, address, phone });
+    const result = await executeQuery(query, { id: Number(id), clinicName, address, phone });
     
     res.json({
       success: true,
@@ -123,7 +123,7 @@ export const updateClinic = async (req, res) => {
 export const deleteClinic = async (req, res) => {
   try {
     const { id } = req.params;
-    await executeQuery(`DELETE FROM clinics WHERE clinic_id = @id`, { id });
+    await executeQuery(`DELETE FROM Clinics WHERE ClinicID = @id`, { id: Number(id) });
     
     res.json({
       success: true,

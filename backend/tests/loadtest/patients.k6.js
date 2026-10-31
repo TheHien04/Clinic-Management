@@ -13,7 +13,7 @@ export let options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:5055';
 const USERNAME = __ENV.USERNAME || 'admin@clinic.local';
 const PASSWORD = __ENV.PASSWORD || 'Admin@123';
 

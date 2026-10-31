@@ -8,6 +8,8 @@ import {
 	login,
 	verifyMfa,
 	refreshToken,
+	logout,
+	changePassword,
 	getMe,
 	getSecurityAudit,
 	cleanupSecurityAudit,
@@ -25,10 +27,12 @@ router.post('/register', authRateLimiter, register);
 router.post('/login', authRateLimiter, loginRateLimiter, login);
 router.post('/mfa/verify', authRateLimiter, loginRateLimiter, verifyMfa);
 router.post('/refresh', authRateLimiter, refreshToken);
+router.post('/logout', authRateLimiter, logout);
 router.get('/csrf-token', authRateLimiter, issueCsrfToken);
 
 // Protected routes
 router.get('/me', authMiddleware, getMe);
+router.post('/change-password', authMiddleware, authRateLimiter, changePassword);
 router.get('/security-audit', authMiddleware, authorize('admin'), getSecurityAudit);
 router.post('/security-audit/cleanup', authMiddleware, authorize('admin'), cleanupSecurityAudit);
 router.get('/privacy/export/:accountId', authMiddleware, authorize('admin'), exportPrivacyData);

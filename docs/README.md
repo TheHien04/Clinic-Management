@@ -28,6 +28,7 @@ Clinic-Management/
 
 | Document | Description |
 |----------|-------------|
+| [CODEBASE_ARCHITECTURE.md](CODEBASE_ARCHITECTURE.md) | Module boundaries, data ownership, and change rules |
 | [SETUP_GUIDE.md](SETUP_GUIDE.md) | Environment setup |
 | [ADVANCED_DATABASE_FEATURES.md](ADVANCED_DATABASE_FEATURES.md) | Advanced database features showcased in the project |
 | [BACKEND_API_GUIDE.md](BACKEND_API_GUIDE.md) | API reference and integration notes |

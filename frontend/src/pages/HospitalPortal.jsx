@@ -17,6 +17,7 @@ import Header from '../components/Header';
 import { ROUTES } from '../constants';
 import './Common.css';
 import './HospitalPortal.css';
+import './CareWorkspace.css';
 
 const emergencyContacts = [
   { label: 'Emergency Hotline', value: '+84 28 3812 3456', href: 'tel:+842838123456' },
@@ -79,11 +80,12 @@ export default function HospitalPortal() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="hospital-portal-content">
+        <main id="main-content" tabIndex="-1" className="hospital-portal-content">
           <section className="hospital-hero">
             <div className="hospital-hero-left">
-              <p className="hospital-eyebrow"><FaGlobeEurope /> International Care Network</p>
-              <h1>Global Hospital Portal</h1>
+              <p className="hospital-eyebrow"><FaGlobeEurope aria-hidden="true" /> International Care Network</p>
+              <h1>Care without <em>borders.</em></h1>
+              <span className="care-sr-only">Global Hospital Portal</span>
               <p>
                 One destination for emergency response, specialist care, international patient support,
                 and digital-first healthcare coordination.

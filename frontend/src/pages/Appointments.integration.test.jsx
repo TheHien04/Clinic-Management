@@ -11,20 +11,8 @@ vi.mock('../components/Header', () => ({
   default: () => <div>Header</div>,
 }));
 
-vi.mock('../components/StackedBarStatusChart', () => ({
-  default: () => <div>StackedBarStatusChart</div>,
-}));
-
 vi.mock('../components/AppointmentCalendarChart', () => ({
   default: () => <div>AppointmentCalendarChart</div>,
-}));
-
-vi.mock('../components/AppointmentSankeyChart', () => ({
-  default: () => <div>AppointmentSankeyChart</div>,
-}));
-
-vi.mock('../components/DonutChart', () => ({
-  default: () => <div>DonutChart</div>,
 }));
 
 describe('Appointments integration', () => {
@@ -95,5 +83,16 @@ describe('Appointments integration', () => {
     });
 
     expect(screen.getAllByText('Test Patient Integration').length).toBeGreaterThan(0);
+  });
+
+  it('bulk confirms selected pending appointments', () => {
+    renderAppointments();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select appointment 2' }));
+    expect(screen.getByText('appointments selected')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm pending' }));
+
+    expect(screen.getByText('1 appointment(s) updated successfully.')).toBeTruthy();
   });
 });

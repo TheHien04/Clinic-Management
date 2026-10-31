@@ -3,3 +3,15 @@
   margin: 0;
   padding: 0;
 }
+
+.route-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #24536d;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(32, 191, 211, 0.16), transparent 18rem),
+    #eef7fa;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}

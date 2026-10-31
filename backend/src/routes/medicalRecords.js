@@ -7,12 +7,15 @@ import {
   updateMedicalRecord,
   deleteMedicalRecord
 } from '../controllers/medicalRecordController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authorize } from '../middleware/auth.js';
+import { clinicalAudit } from '../middleware/clinicalAudit.js';
 
 const router = express.Router();
 
 // All routes are protected
 router.use(authMiddleware);
+router.use(authorize('admin', 'manager', 'supervisor', 'doctor', 'nurse'));
+router.use(clinicalAudit('treatment'));
 
 // @route   GET /api/medical-records
 // @desc    Get all medical records with filtering & pagination
@@ -42,6 +45,6 @@ router.put('/:id', updateMedicalRecord);
 // @route   DELETE /api/medical-records/:id
 // @desc    Delete medical record
 // @access  Private
-router.delete('/:id', deleteMedicalRecord);
+router.delete('/:id', authorize('admin', 'manager', 'doctor'), deleteMedicalRecord);
 
 export default router;

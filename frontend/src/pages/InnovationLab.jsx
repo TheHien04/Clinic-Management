@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import Neo4jHealthGraphStudio from '../components/Neo4jHealthGraphStudio';
+import { FaArrowRight, FaFlask, FaRobot, FaShieldAlt } from 'react-icons/fa';
 import {
   activateInnovationSigningKey,
   getAiAuditTrail,
@@ -24,6 +25,7 @@ import {
 } from '../services/innovation';
 import { subscribeInnovationEmergency } from '../services/socket';
 import './InnovationLab.css';
+import './CareWorkspace.css';
 
 export default function InnovationLab() {
   const [security, setSecurity] = useState(null);
@@ -395,12 +397,32 @@ export default function InnovationLab() {
   };
 
   return (
-    <div className="innovation-page">
+    <div className="dashboard-layout innovation-page">
       <Sidebar />
-      <main className="innovation-main">
+      <div className="dashboard-main">
         <Header />
-        <h2>Global Innovation Lab</h2>
-        <p>International-grade capabilities for cyber-resilience, AI triage, and preventive health orchestration.</p>
+        <main id="main-content" tabIndex="-1" className="innovation-main">
+        <section className="care-workspace-hero innovation-workspace-hero">
+          <div className="care-workspace-copy">
+            <span className="care-eyebrow"><FaFlask aria-hidden="true" /> Responsible clinical innovation</span>
+            <h1>Move faster, <em>with evidence built in.</em></h1>
+            <p>Operate AI triage, preventive coaching, model reliability and cryptographic governance from one auditable clinical lab.</p>
+            <div className="care-hero-actions">
+              <button type="button" className="care-action-primary" onClick={() => document.querySelector('.innovation-governance-panel')?.scrollIntoView({ behavior: 'smooth' })}>Review governance <FaArrowRight aria-hidden="true" /></button>
+              <button type="button" className="care-action-secondary" onClick={loadSecurity}><FaShieldAlt aria-hidden="true" /> Run security check</button>
+            </div>
+          </div>
+          <div className="care-workspace-metrics" aria-label="Innovation readiness priorities">
+            <article className={governanceReadiness.score < 65 ? 'is-critical' : ''}><span>Governance</span><b>{governanceReadiness.score}</b><small>{governanceReadiness.tier} readiness</small></article>
+            <article><span>Controls passed</span><b>{governanceReadiness.passedCount}/{governanceReadiness.totalCount}</b><small><FaShieldAlt aria-hidden="true" /> Auditable controls</small></article>
+            <article><span>Live escalations</span><b>{emergencyFeed.length}</b><small><FaRobot aria-hidden="true" /> Clinical AI watch</small></article>
+          </div>
+        </section>
+        <h2 className="care-sr-only">Global Innovation Lab</h2>
+        <div className="care-section-heading">
+          <div><span>Trust architecture</span><h3>AI governance readiness</h3></div>
+          <small>Policy, keys and runtime assurance</small>
+        </div>
 
         <section className="innovation-governance-panel" aria-label="AI governance readiness">
           <div className="innovation-governance-head">
@@ -499,6 +521,15 @@ export default function InnovationLab() {
               </div>
             )}
           </section>
+
+        </div>
+
+        <details className="innovation-advanced-disclosure">
+          <summary>
+            <span><b>Advanced platform controls</b><small>Policy, audit signatures, ModelOps, recovery drills and graph engineering</small></span>
+            <span>{governanceReadiness.passedCount}/{governanceReadiness.totalCount} controls</span>
+          </summary>
+          <div className="innovation-grid innovation-advanced-grid">
 
           <section className="innovation-card">
             <h3>AI Policy Engine Governance</h3>
@@ -651,8 +682,10 @@ export default function InnovationLab() {
           </section>
 
           <Neo4jHealthGraphStudio />
-        </div>
-      </main>
+          </div>
+        </details>
+        </main>
+      </div>
     </div>
   );
 }

@@ -335,7 +335,7 @@ Open browser console and run:
 ```javascript
 // Connect to WebSocket
 const socket = io('http://localhost:5055', {
-  auth: { token: localStorage.getItem('auth_token') }
+  auth: { token: sessionStorage.getItem('auth_token') }
 });
 
 // Listen for events
@@ -489,7 +489,7 @@ Solution: Check database schema matches expected structure. Re-run SQL scripts.
 ## 🎯 Next Steps
 
 1. **Testing:**
-   - Add unit tests (Jest)
+   - Add unit tests (Vitest)
    - Add E2E tests (Playwright)
    - Test all API endpoints
 
@@ -515,7 +515,7 @@ Solution: Check database schema matches expected structure. Re-run SQL scripts.
 - **Backend API:** http://localhost:5055/ (when server running)
 - **Backend README:** `/backend/README.md`
 - **Frontend README:** `/frontend/README.md`
-- **Improvements Doc:** `/IMPROVEMENTS.md`
+- **Testing and security:** `docs/TESTING_PERFORMANCE_SECURITY.md`
 
 ---
 

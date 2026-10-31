@@ -31,6 +31,9 @@ afterEach(() => {
   if (globalThis.localStorage && typeof globalThis.localStorage.clear === 'function') {
     globalThis.localStorage.clear();
   }
+  if (globalThis.sessionStorage && typeof globalThis.sessionStorage.clear === 'function') {
+    globalThis.sessionStorage.clear();
+  }
 });
 
 if (!globalThis.ResizeObserver) {

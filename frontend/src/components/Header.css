@@ -456,3 +456,72 @@
     font-size: 1.08rem;
   }
 }
+
+/* 2026 Care OS top rail */
+.header {
+  height: 74px;
+  padding: 0 24px;
+  background: rgba(248, 252, 254, .92);
+  border-bottom: 1px solid #cfdee5;
+  box-shadow: none;
+  backdrop-filter: blur(18px);
+}
+.header-left { gap: 20px; }
+.header-title-wrap { padding-right: 20px; border-right: 1px solid #cfdee5; }
+.header-eyebrow { color: #5d7b8b; font: 800 9px/1.2 sans-serif; letter-spacing: .19em; }
+.header-title { color: #123a52; font-size: 1.05rem; letter-spacing: -.02em; }
+.header-health-pill {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent !important;
+  color: #17617f !important;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.header-user { gap: 7px; }
+.header-time { display: flex; flex-direction: column; color: #204f68; font-size: 11px; line-height: 1.15; padding: 0 10px; }
+.header-time span { color: #708997; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.header-ops-alerts,
+.header-quick-action,
+.header-theme-toggle,
+.command-launcher,
+.logout-btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 3px;
+  border: 1px solid #c7d8e0;
+  background: transparent;
+  color: #204f68;
+  padding: 0 11px;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: none;
+}
+.header-ops-alerts b { min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 50%; background: #073b5c; color: #fff; font-size: 9px; }
+.header-quick-action:first-of-type { background: #073b5c; color: #fff; border-color: #073b5c; }
+.header-quick-action:hover,
+.header-theme-toggle:hover,
+.command-launcher:hover,
+.logout-btn:hover { background: #e5f2f6; color: #073b5c; transform: none; box-shadow: none; }
+.command-launcher { padding-left: 12px; }
+.command-launcher kbd { border-left: 1px solid #ccd5c8; padding-left: 8px; color: #7a8e87; font: 700 9px/1 monospace; }
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; background: #20bfd3; color: #052f4a; box-shadow: none; }
+.user-name { font-size: 12px; color: #234f67; max-width: 84px; line-height: 1.15; }
+.logout-btn { width: 38px; padding: 0; }
+.logout-btn span { display: none; }
+.header-ops-panel { border-radius: 4px; border-color: #c8d9e1; box-shadow: 0 20px 60px rgba(5,47,74,.18); }
+
+@media (max-width: 1300px) {
+  .header-time, .header-quick-action:nth-of-type(3), .header-theme-toggle span, .user-name { display: none; }
+}
+@media (max-width: 850px) {
+  .header { height: 64px; padding: 0 12px; }
+  .header-health-pill, .header-quick-action, .command-launcher span, .command-launcher kbd { display: none; }
+  .command-launcher { width: 38px; padding: 0; }
+  .header-title-wrap { border: 0; padding: 0; }
+}

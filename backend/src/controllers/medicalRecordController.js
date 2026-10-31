@@ -40,8 +40,8 @@ export const getMedicalRecords = async (req, res) => {
   try {
     const { patientId, startDate, endDate, page = 1, limit = 20 } = req.query;
 
-    let query = `${baseMedicalRecordSelect} WHERE 1=1`;
-    const params = {};
+    let query = `${baseMedicalRecordSelect} WHERE (@clinicId IS NULL OR a.ClinicID = @clinicId)`;
+    const params = { clinicId: req.user?.clinicId || null };
 
     if (patientId) {
       query += ' AND p.PatientID = @patientId';
@@ -75,10 +75,10 @@ export const getMedicalRecords = async (req, res) => {
       FROM MedicalRecords mr
       JOIN Appointments a ON mr.AppointmentID = a.AppointmentID
       JOIN Patients p ON a.PatientID = p.PatientID
-      WHERE 1=1
+      WHERE (@clinicId IS NULL OR a.ClinicID = @clinicId)
     `;
 
-    const countParams = {};
+    const countParams = { clinicId: req.user?.clinicId || null };
 
     if (patientId) {
       countQuery += ' AND p.PatientID = @patientId';
@@ -125,8 +125,8 @@ export const getMedicalRecordById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const query = `${baseMedicalRecordSelect} WHERE mr.RecordID = @id`;
-    const result = await executeQuery(query, { id: Number(id) });
+    const query = `${baseMedicalRecordSelect} WHERE mr.RecordID = @id AND (@clinicId IS NULL OR a.ClinicID = @clinicId)`;
+    const result = await executeQuery(query, { id: Number(id), clinicId: req.user?.clinicId || null });
 
     if (result.recordset.length === 0) {
       return res.status(404).json({
@@ -158,11 +158,11 @@ export const getMedicalRecordsByPatient = async (req, res) => {
 
     const query = `
       ${baseMedicalRecordSelect}
-      WHERE p.PatientID = @patientId
+      WHERE p.PatientID = @patientId AND (@clinicId IS NULL OR a.ClinicID = @clinicId)
       ORDER BY mr.CreatedDate DESC
     `;
 
-    const result = await executeQuery(query, { patientId: Number(patientId) });
+    const result = await executeQuery(query, { patientId: Number(patientId), clinicId: req.user?.clinicId || null });
 
     res.json({
       success: true,
@@ -193,12 +193,15 @@ export const createMedicalRecord = async (req, res) => {
     }
 
     const appointmentQuery = `
-      SELECT AppointmentID, Status
+      SELECT AppointmentID, PatientID, Status
       FROM Appointments
-      WHERE AppointmentID = @appId
+      WHERE AppointmentID = @appId AND (@clinicId IS NULL OR ClinicID = @clinicId)
     `;
 
-    const appointmentResult = await executeQuery(appointmentQuery, { appId: Number(appId) });
+    const appointmentResult = await executeQuery(appointmentQuery, {
+      appId: Number(appId),
+      clinicId: req.user?.clinicId || null,
+    });
 
     if (appointmentResult.recordset.length === 0) {
       return res.status(404).json({
@@ -266,8 +269,16 @@ export const updateMedicalRecord = async (req, res) => {
     const { id } = req.params;
     const { diagnosisCode, prescription, notes, followUpDate } = req.body;
 
-    const checkQuery = 'SELECT RecordID FROM MedicalRecords WHERE RecordID = @id';
-    const checkResult = await executeQuery(checkQuery, { id: Number(id) });
+    const checkQuery = `
+      SELECT mr.RecordID, a.PatientID
+      FROM MedicalRecords mr
+      JOIN Appointments a ON a.AppointmentID = mr.AppointmentID
+      WHERE mr.RecordID = @id AND (@clinicId IS NULL OR a.ClinicID = @clinicId)
+    `;
+    const checkResult = await executeQuery(checkQuery, {
+      id: Number(id),
+      clinicId: req.user?.clinicId || null,
+    });
 
     if (checkResult.recordset.length === 0) {
       return res.status(404).json({
@@ -292,10 +303,16 @@ export const updateMedicalRecord = async (req, res) => {
         INSERTED.FollowUpDate AS follow_up_date,
         INSERTED.CreatedDate AS created_at
       WHERE RecordID = @id
+        AND EXISTS (
+          SELECT 1 FROM Appointments scoped
+          WHERE scoped.AppointmentID = MedicalRecords.AppointmentID
+            AND (@clinicId IS NULL OR scoped.ClinicID = @clinicId)
+        )
     `;
 
     const result = await executeQuery(updateQuery, {
       id: Number(id),
+      clinicId: req.user?.clinicId || null,
       diagnosisCode: diagnosisCode || null,
       prescription: prescription || null,
       notes: notes || null,
@@ -324,8 +341,16 @@ export const deleteMedicalRecord = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const checkQuery = 'SELECT RecordID FROM MedicalRecords WHERE RecordID = @id';
-    const checkResult = await executeQuery(checkQuery, { id: Number(id) });
+    const checkQuery = `
+      SELECT mr.RecordID, mr.AppointmentID, mr.DiagnosisCode, a.PatientID
+      FROM MedicalRecords mr
+      JOIN Appointments a ON a.AppointmentID = mr.AppointmentID
+      WHERE mr.RecordID = @id AND (@clinicId IS NULL OR a.ClinicID = @clinicId)
+    `;
+    const checkResult = await executeQuery(checkQuery, {
+      id: Number(id),
+      clinicId: req.user?.clinicId || null,
+    });
 
     if (checkResult.recordset.length === 0) {
       return res.status(404).json({

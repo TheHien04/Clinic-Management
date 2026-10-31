@@ -23,6 +23,13 @@ vi.mock('../services/socket', () => ({
   },
 }));
 
+vi.mock('../services/auth', () => ({
+  loginAPI: vi.fn(),
+  registerAPI: vi.fn(),
+  logoutAPI: vi.fn().mockResolvedValue({ success: true }),
+  changePasswordAPI: vi.fn(),
+}));
+
 const OPS_ALERTS_STORAGE_KEY = 'ops_alerts_global_v1';
 const OPS_ALERTS_SEEN_SIGNATURE_KEY = 'ops_alerts_seen_signature_v1';
 
@@ -42,8 +49,7 @@ describe('Header ops alerts integration', () => {
     socketOpsAlertCallback = null;
 
     localStorage.setItem('user', JSON.stringify({ name: 'Ops Admin', email: 'ops@example.com' }));
-    localStorage.setItem('auth_token', 'eyJhbGci.test.eyJzdWIiOiIxIn0.signature');
-    localStorage.setItem('refresh_token', 'eyJhbGci.test.eyJ0eXAiOiJSU0gifQ.signature');
+    sessionStorage.setItem('auth_token', 'eyJhbGci.test.eyJzdWIiOiIxIn0.signature');
     localStorage.setItem('app_theme', 'light');
 
     const payload = {

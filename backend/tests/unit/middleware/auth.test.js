@@ -33,7 +33,7 @@ describe('auth middleware', () => {
     authMiddleware(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
-    expect(req.user).toEqual({ id: 1, email: 'admin@clinic.com', role: 'admin' });
+    expect(req.user).toEqual({ id: 1, email: 'admin@clinic.com', role: 'admin', clinicId: null });
   });
 
   it('returns 401 for invalid token', () => {

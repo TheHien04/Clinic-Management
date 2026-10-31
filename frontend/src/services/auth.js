@@ -40,12 +40,22 @@ export const getMeAPI = async () => {
 
 /**
  * Refresh access token
- * @param {string} refreshToken - Refresh token
  * @returns {Promise<Object>} New access token
  */
-export const refreshTokenAPI = async (refreshToken) => {
-  const response = await apiClient.post(API_ENDPOINTS.REFRESH_TOKEN, {
-    refreshToken,
+export const refreshTokenAPI = async () => {
+  const response = await apiClient.post(API_ENDPOINTS.REFRESH_TOKEN);
+  return response.data;
+};
+
+export const logoutAPI = async () => {
+  const response = await apiClient.post('/auth/logout');
+  return response.data;
+};
+
+export const changePasswordAPI = async (currentPassword, newPassword) => {
+  const response = await apiClient.post('/auth/change-password', {
+    currentPassword,
+    newPassword,
   });
   return response.data;
 };
@@ -69,5 +79,7 @@ export default {
   registerAPI,
   getMeAPI,
   refreshTokenAPI,
+  logoutAPI,
+  changePasswordAPI,
   verifyMfaAPI,
 };

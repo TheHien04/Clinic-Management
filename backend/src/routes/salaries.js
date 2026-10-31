@@ -6,11 +6,12 @@ import {
   getSalarySummary,
   deleteSalaryRecord 
 } from '../controllers/salaryController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.use(authMiddleware);
+router.use(authorize('admin', 'manager'));
 
 router.get('/', getAllSalaryRecords);
 router.get('/summary', getSalarySummary);

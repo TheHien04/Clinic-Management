@@ -21,9 +21,28 @@ const sanitizeRequestData = (data) => {
   return data;
 };
 
+// Signed clinical decision packages are integrity-sensitive payloads. Any
+// normalization (even trimming or removing angle brackets from symptom text)
+// changes the canonical JSON and invalidates the package digest. Keep this
+// subtree byte-for-byte equivalent to what the caller submitted; the package
+// is still validated cryptographically by the verification controller.
+const sanitizeBody = (body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return sanitizeRequestData(body);
+  }
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(body)) {
+    sanitized[key] = key === 'decisionPackage'
+      ? value
+      : sanitizeRequestData(value);
+  }
+  return sanitized;
+};
+
 const inputSanitization = (req, res, next) => {
   if (req.body) {
-    req.body = sanitizeRequestData(req.body);
+    req.body = sanitizeBody(req.body);
   }
   if (req.query) {
     req.query = sanitizeRequestData(req.query);

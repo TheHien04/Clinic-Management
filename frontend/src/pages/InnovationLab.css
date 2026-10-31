@@ -103,6 +103,34 @@
   align-items: start;
 }
 
+.innovation-advanced-disclosure {
+  margin-top: 18px;
+  border: 1px solid #c9dfe9;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .82);
+  overflow: hidden;
+}
+
+.innovation-advanced-disclosure > summary {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 18px;
+  list-style: none;
+  cursor: pointer;
+  color: #0d4f73;
+  background: linear-gradient(90deg, #f7fcff, #eef9fb);
+}
+
+.innovation-advanced-disclosure > summary::-webkit-details-marker { display: none; }
+.innovation-advanced-disclosure > summary span:first-child { display: grid; gap: 5px; }
+.innovation-advanced-disclosure > summary b { font-size: 1rem; }
+.innovation-advanced-disclosure > summary small { color: #647f8d; font-size: .76rem; }
+.innovation-advanced-disclosure > summary span:last-child { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #bddbe7; border-radius: 999px; font-size: .76rem; font-weight: 800; }
+.innovation-advanced-grid { padding: 16px; border-top: 1px solid #d7e7ed; }
+
 .innovation-card {
   background: #fff;
   border: 1px solid #d8e8f5;

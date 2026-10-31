@@ -28,6 +28,61 @@
   width: 100%;
 }
 
+.patients-access-desk {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(280px, .78fr) minmax(420px, 1.35fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.patients-access-actions,
+.patients-access-worklist {
+  border: 1px solid var(--care-border, #cfe4f0);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 16px 38px rgba(7, 72, 108, .09);
+  padding: 16px;
+}
+
+.patients-access-actions { display: grid; gap: 10px; }
+.patients-access-actions > button {
+  min-height: 76px;
+  border: 1px solid #d4e7f1;
+  border-radius: 13px;
+  background: #f8fcff;
+  color: #083f64;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.patients-access-actions > button:hover,
+.patients-access-actions > button:focus-visible { border-color: #22bdd1; background: #eefbfe; box-shadow: 0 8px 22px rgba(20, 159, 184, .12); }
+.patients-access-actions > button > svg:first-child { color: #0b8cac; font-size: 21px; }
+.patients-access-actions span { display: grid; gap: 3px; }
+.patients-access-actions b { font-size: 15px; }
+.patients-access-actions small { color: #5f7b8d; font-size: 12px; line-height: 1.35; }
+.patients-access-worklist { display: grid; align-content: start; gap: 9px; }
+.patients-access-head { display: flex; justify-content: space-between; gap: 12px; padding: 2px 2px 9px; border-bottom: 1px solid #e1edf4; }
+.patients-access-head span { color: #083f64; font-weight: 800; }
+.patients-access-head small { color: #688192; }
+.patients-access-worklist article { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 12px; border: 1px solid #e0ebf2; border-radius: 12px; }
+.patients-access-worklist article > div { display: grid; gap: 3px; }
+.patients-access-worklist article small { color: #688192; }
+.patients-access-worklist article button { min-height: 42px; border: 1px solid #0b87a4; border-radius: 9px; background: #fff; color: #086886; font-weight: 800; padding: 0 13px; cursor: pointer; }
+.patients-access-risk { border-radius: 999px; padding: 5px 8px; text-transform: uppercase; font-size: 10px; font-weight: 900; letter-spacing: .05em; }
+.patients-access-risk.is-high { color: #a4313b; background: #fff0f1; }
+.patients-access-risk.is-medium { color: #94600d; background: #fff6e4; }
+.patients-access-risk.is-low { color: #18704a; background: #eaf8f1; }
+.patients-access-empty { min-height: 150px; display: flex; align-items: center; justify-content: center; gap: 12px; color: #2d7b66; }
+.patients-access-empty span { display: grid; gap: 3px; }
+.patients-access-empty small { color: #688192; }
+
 .patients-dashboard-row {
   display: flex;
   flex-direction: row;
@@ -487,6 +542,7 @@
 }
 
 @media (max-width: 900px) {
+  .patients-access-desk { grid-template-columns: 1fr; }
   .patients-content {
     padding: 20px 12px 36px;
   }

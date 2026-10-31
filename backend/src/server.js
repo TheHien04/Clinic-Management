@@ -7,11 +7,8 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-// import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 // Import configurations
 import { getPool, closePool, executeQuery } from './config/database.js';
@@ -33,6 +30,8 @@ import salaryRoutes from './routes/salaries.js';
 import reportRoutes from './routes/reports.js';
 import innovationRoutes from './routes/innovation.js';
 import notificationRoutes from './routes/notifications.js';
+import patientPortalRoutes from './routes/patientPortal.js';
+import bioinformaticsRoutes from './routes/bioinformatics.js';
 
 // Import middleware
 import { notFound, errorHandler } from './middleware/errorHandler.js';
@@ -40,10 +39,11 @@ import securityHeaders from './middleware/securityHeaders.js';
 import inputSanitization from './middleware/inputSanitization.js';
 import { performanceMonitor } from './middleware/performanceMonitor.js';
 import { generalLimiter, authLimiter, uploadLimiter, appointmentLimiter } from './middleware/rateLimiter.js';
-import { cache } from './middleware/cacheMiddleware.js';
 import { stateChangeOriginGuard } from './middleware/requestGuard.js';
 import { csrfProtection } from './middleware/csrf.js';
+import responseSanitization from './middleware/responseSanitization.js';
 import { startSecurityAuditRetentionJob, stopSecurityAuditRetentionJob } from './utils/securityAudit.js';
+import { startClinicalOutboxRelay, stopClinicalOutboxRelay } from './services/clinicalOutboxRelay.js';
 
 // Import socket
 import { initSocket } from './socket/index.js';
@@ -58,10 +58,6 @@ if (process.env.REDIS_URL) {
   connectRedis();
 }
 
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Initialize Express app
 const app = express();
 const START_PORT = parseInt(process.env.PORT || '5000', 10);
@@ -73,6 +69,11 @@ const httpServer = createServer(app);
 // Initialize Socket.IO
 const io = initSocket(httpServer);
 
+// Explicit trust boundaries: only trust proxy headers when deployed behind a
+// known reverse proxy. This prevents spoofed client IPs from weakening limits.
+const trustProxy = String(process.env.TRUST_PROXY || '').trim();
+if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? 1 : trustProxy);
+
 // Middleware
 app.disable('x-powered-by');
 app.use(securityHeaders); // OWASP Helmet config
@@ -80,17 +81,17 @@ app.use(cors({
   origin: getAllowedOrigins('CORS_ORIGIN'),
   credentials: true
 }));
-app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+  skip: (req) => req.path === '/api/health' || req.path === '/api/health/live',
+}));
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_BODY_LIMIT || '100kb' }));
 app.use(cookieParser());
+app.use(responseSanitization);
 app.use(inputSanitization); // Sanitize all input
 app.use(performanceMonitor); // Track request performance
 app.use(stateChangeOriginGuard);
 app.use(csrfProtection);
-
-// Serve static files (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Rate limiting (Redis-backed if available)
 app.use('/api/', generalLimiter);
@@ -98,10 +99,6 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/appointments', appointmentLimiter);
-
-// API Routes with caching for GET endpoints (example: cache doctor/patient list)
-app.use('/api/doctors', cache(300));
-app.use('/api/patients', cache(300));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
@@ -116,9 +113,11 @@ app.use('/api/salaries', salaryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/innovation', innovationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/patient-portal', patientPortalRoutes);
+app.use('/api/bioinformatics', bioinformaticsRoutes);
 
 // Health check endpoint
-app.get('/api/health', async (req, res) => {
+const getDependencyHealth = async () => {
   let sqlServer = 'disconnected';
 
   try {
@@ -128,18 +127,36 @@ app.get('/api/health', async (req, res) => {
     sqlServer = 'degraded';
   }
 
-  res.json({
-    success: true,
-    message: 'Server is running',
+  const mongo = getMongoStatus();
+  return { sqlServer, mongo };
+};
+
+// Liveness is deliberately dependency-free so an orchestrator can restart a
+// wedged process without exposing database details publicly.
+app.get('/api/health/live', (req, res) => {
+  res.status(200).json({ success: true, status: 'alive', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', async (req, res) => {
+  const dependencies = await getDependencyHealth();
+  const ready = dependencies.sqlServer === 'connected'
+    && (!dependencies.mongo.enabled || dependencies.mongo.connected);
+  res.status(ready ? 200 : 503).json({
+    success: ready,
+    status: ready ? 'ready' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    databases: {
-      sqlServer,
-      mongo: getMongoStatus(),
-    },
-    innovationPersistence: getInnovationPersistenceStatus(),
+    databases: dependencies,
+    ...(process.env.NODE_ENV === 'production' ? {} : { innovationPersistence: getInnovationPersistenceStatus() }),
   });
+});
+
+app.get('/api/health/ready', async (req, res) => {
+  const dependencies = await getDependencyHealth();
+  const ready = dependencies.sqlServer === 'connected'
+    && (!dependencies.mongo.enabled || dependencies.mongo.connected);
+  res.status(ready ? 200 : 503).json({ success: ready, status: ready ? 'ready' : 'not-ready', databases: dependencies });
 });
 
 // Root endpoint
@@ -209,6 +226,9 @@ const startServer = async () => {
     // Optional NoSQL connection for advanced DB workflows.
     await connectMongo();
 
+    // Transactional SQL outbox -> privacy-minimized MongoDB read models.
+    startClinicalOutboxRelay();
+
     // Start background cleanup for auth security audit retention.
     startSecurityAuditRetentionJob();
 
@@ -238,12 +258,17 @@ const gracefulShutdown = async () => {
   console.log('\n🛑 Shutting down gracefully...');
   
   // Close HTTP server
-  httpServer.close(() => {
-    console.log('✅ HTTP server closed');
+  await new Promise((resolve) => {
+    if (!httpServer.listening) return resolve();
+    httpServer.close(() => {
+      console.log('✅ HTTP server closed');
+      resolve();
+    });
   });
 
   // Close database connection
   stopSecurityAuditRetentionJob();
+  stopClinicalOutboxRelay();
   await closePool();
   await closeMongoClient();
   

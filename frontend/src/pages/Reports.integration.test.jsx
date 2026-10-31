@@ -116,6 +116,25 @@ describe('Reports integration', () => {
     });
   });
 
+  it('switches compact report workspaces without removing the underlying tools', () => {
+    const { container } = renderReports();
+    const main = container.querySelector('.reports-content');
+
+    expect(main?.classList.contains('reports-view-overview')).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Care workflows' }));
+    expect(main?.classList.contains('reports-view-care')).toBe(true);
+    expect(screen.getByText('Patient Risk Trajectory')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Research & data' }));
+    expect(main?.classList.contains('reports-view-research')).toBe(true);
+    expect(screen.getByText('Clinical data fabric')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced tools' }));
+    expect(main?.classList.contains('reports-view-advanced')).toBe(true);
+    expect(screen.getByText('Appointments sample')).toBeTruthy();
+  });
+
   it('runs key-rotate tamper verify workflow in compliance cockpit', async () => {
     renderReports();
 

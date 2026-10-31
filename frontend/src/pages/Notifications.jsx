@@ -12,6 +12,7 @@ import {
 } from '../services/notifications';
 import './Common.css';
 import './Notifications.css';
+import './CareWorkspace.css';
 
 const fallbackInbox = [
   {
@@ -118,11 +119,12 @@ export default function Notifications() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="notifications-content">
+        <main id="main-content" tabIndex="-1" className="notifications-content">
           <section className="notifications-hero">
             <div>
-              <p className="notifications-eyebrow"><FaBell /> Notification Center</p>
-              <h1>Enterprise Messaging Console</h1>
+              <p className="notifications-eyebrow"><FaBell aria-hidden="true" /> Care communication operations</p>
+              <h1>Keep every care message <em>moving.</em></h1>
+              <span className="care-sr-only">Enterprise Messaging Console</span>
               <p>Unified inbox with queue retries, multi-channel dispatch, and dead-letter visibility.</p>
               <p className="notifications-status">{status}</p>
             </div>
@@ -136,7 +138,7 @@ export default function Notifications() {
 
           <section className="notifications-grid">
             <article className="notifications-card">
-              <h3><FaInbox /> Inbox</h3>
+              <h3><FaInbox aria-hidden="true" /> Inbox</h3>
               <ul className="notifications-list">
                 {inbox.map((item) => (
                   <li key={item.id} className={`severity-${severityClass(item.severity)}`}>
@@ -159,7 +161,7 @@ export default function Notifications() {
             </article>
 
             <article className="notifications-card">
-              <h3><FaPaperPlane /> Broadcast Composer</h3>
+              <h3><FaPaperPlane aria-hidden="true" /> Broadcast Composer</h3>
               <label>Title
                 <input
                   value={composer.title}

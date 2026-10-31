@@ -10,6 +10,7 @@ import { getAllowedOrigins } from '../config/env.js';
 
 let io = null;
 const HANDOVER_PRIVILEGED_ROLES = ['admin', 'manager', 'supervisor'];
+const APPOINTMENT_ROLES = new Set(['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist']);
 
 const normalizeSeverity = (value) => {
   const severity = String(value || '').toLowerCase();
@@ -123,6 +124,10 @@ export const initSocket = (server) => {
      * Subscribe to appointment updates
      */
     socket.on('subscribe:appointments', () => {
+      if (!APPOINTMENT_ROLES.has(String(socket.userRole || '').toLowerCase())) {
+        socket.emit('error', { message: 'Insufficient permissions for appointment updates' });
+        return;
+      }
       socket.join('appointments');
       console.log(`User ${socket.userEmail} subscribed to appointments`);
     });
@@ -139,6 +144,7 @@ export const initSocket = (server) => {
      * Send typing indicator
      */
     socket.on('typing', (data) => {
+      if (!APPOINTMENT_ROLES.has(String(socket.userRole || '').toLowerCase())) return;
       socket.broadcast.emit('user:typing', {
         userId: socket.userId,
         email: socket.userEmail,
@@ -165,7 +171,9 @@ export const initSocket = (server) => {
 export const emitAppointmentCreated = (appointment) => {
   if (io) {
     io.to('appointments').emit('appointment:created', appointment);
-    io.emit('ops-alerts:update', buildOpsAlertPayload({ action: 'created', appointment }));
+    HANDOVER_PRIVILEGED_ROLES.forEach((role) => {
+      io.to(`role:${role}`).emit('ops-alerts:update', buildOpsAlertPayload({ action: 'created', appointment }));
+    });
     
     // Notify specific patient
     if (appointment.PatientID) {
@@ -186,7 +194,9 @@ export const emitAppointmentCreated = (appointment) => {
 export const emitAppointmentUpdated = (appointment) => {
   if (io) {
     io.to('appointments').emit('appointment:updated', appointment);
-    io.emit('ops-alerts:update', buildOpsAlertPayload({ action: 'updated', appointment }));
+    HANDOVER_PRIVILEGED_ROLES.forEach((role) => {
+      io.to(`role:${role}`).emit('ops-alerts:update', buildOpsAlertPayload({ action: 'updated', appointment }));
+    });
     
     // Notify specific users
     if (appointment.PatientID) {
@@ -209,13 +219,15 @@ export const emitAppointmentDeleted = (appointment) => {
       appointmentId: appointment?.AppointmentID,
       appointment,
     });
-    io.emit('ops-alerts:update', buildOpsAlertPayload({
-      action: 'deleted',
-      appointment: {
-        ...appointment,
-        Status: appointment?.Status || 'deleted',
-      },
-    }));
+    HANDOVER_PRIVILEGED_ROLES.forEach((role) => {
+      io.to(`role:${role}`).emit('ops-alerts:update', buildOpsAlertPayload({
+        action: 'deleted',
+        appointment: {
+          ...appointment,
+          Status: appointment?.Status || 'deleted',
+        },
+      }));
+    });
   }
 };
 

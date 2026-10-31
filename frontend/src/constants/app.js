@@ -11,6 +11,7 @@ export const ROUTES = {
   REPORTS: 'reports',
   MEDICAL_RECORDS: 'medical-records',
   INNOVATION_LAB: 'innovation-lab',
+  BIOINFORMATICS: 'bioinformatics',
   NOTIFICATIONS: 'notifications',
   HOSPITAL_PORTAL: 'hospital-portal',
   PATIENT_PORTAL: 'patient-portal',
@@ -51,6 +52,9 @@ export const API_ENDPOINTS = {
   INNOVATION_AI_TRIAGE: '/innovation/ai/triage',
   INNOVATION_PREVENTIVE_INSIGHTS: '/innovation/health/preventive-insights',
 
+  // Bioinformatics
+  BIOINFORMATICS_ATLAS: '/bioinformatics/atlas',
+
   // Notifications
   NOTIFICATION_INBOX: '/notifications/inbox',
   NOTIFICATION_CREATE: '/notifications',
@@ -89,13 +93,6 @@ export const APP_I18N = {
 
 // Toast duration
 export const TOAST_DURATION = 3000;
-
-// File upload
-export const FILE_UPLOAD = {
-  MAX_SIZE: 5 * 1024 * 1024, // 5MB
-  ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
-  ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.gif', '.pdf'],
-};
 
 // Appointment status
 export const APPOINTMENT_STATUS = {

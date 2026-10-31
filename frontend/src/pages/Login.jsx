@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
+import {
+  FaArrowRight,
+  FaChartLine,
+  FaClinicMedical,
+  FaExclamationCircle,
+  FaEye,
+  FaEyeSlash,
+  FaHeartbeat,
+  FaShieldAlt,
+} from 'react-icons/fa';
 import { ROUTES } from '../constants';
 import { loginAPI, verifyMfaAPI } from '../services/auth';
-import { useAuth } from '../contexts/AuthContext.jsx';
+import { useAuth } from '../contexts/auth-context';
 import './Login.css';
 
 export default function Login() {
   const { establishSession } = useAuth();
   const navigate = useNavigate();
+  const pageRef = useRef(null);
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +26,32 @@ export default function Login() {
   const [mfaTicket, setMfaTicket] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaHint, setMfaHint] = useState('');
+
+  useEffect(() => {
+    const sections = pageRef.current?.querySelectorAll('[data-reveal]') || [];
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((section) => section.classList.add('is-visible'));
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.16 });
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  const focusWorkspaceAccess = () => {
+    const target = document.getElementById(mfaTicket ? 'login-mfa' : 'login-email');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target?.focus({ preventScroll: true });
+  };
 
   const handleChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -41,9 +77,11 @@ export default function Login() {
       establishSession({
         user: data.user,
         token: data.token,
-        refreshToken: data.refreshToken,
       });
-      navigate(`/${ROUTES.DASHBOARD}`);
+      const destination = ['patient', 'user'].includes(String(data.user?.role || '').toLowerCase())
+        ? ROUTES.PATIENT_PORTAL
+        : ROUTES.DASHBOARD;
+      navigate(`/${destination}`);
     } catch (err) {
       setError(err?.message || 'Invalid username or password!');
     } finally {
@@ -52,65 +90,148 @@ export default function Login() {
   };
 
   return (
-    <div className="login-container">
-      <img className="login-bg-img" src="https://cdn.pixabay.com/photo/2017/08/06/00/09/people-2583492_1280.png" alt="hospital background" />
-      <div className="login-card">
-        <div className="login-logo">
-          <img src="https://cdn-icons-png.flaticon.com/512/2966/2966484.png" alt="Clinic Logo" className="logo-img" />
-        </div>
-        <h2 className="login-title">Clinic Management</h2>
-        <div className="login-subtitle">{mfaTicket ? 'Multi-factor verification required' : 'Sign in to your account'}</div>
+    <div className="auth-experience" ref={pageRef}>
+      <header className="auth-topbar">
+        <a className="auth-brand" href="#welcome" aria-label="Clinic Care OS home">
+          <span className="auth-brand-mark"><FaClinicMedical aria-hidden="true" /></span>
+          <span>CLINIC <small>CARE OS</small></span>
+        </a>
+        <nav className="auth-nav" aria-label="Public navigation">
+          <a href="#platform">Platform</a>
+          <a href="#care-experience">Care experience</a>
+          <button type="button" onClick={focusWorkspaceAccess}>Access workspace <FaArrowRight aria-hidden="true" /></button>
+        </nav>
+      </header>
 
-        <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-          {!mfaTicket && (
-            <>
-              <div className="input-group">
-                <input name="email" type="text" placeholder="Username" value={form.email} onChange={handleChange} autoFocus required />
-              </div>
-              <div className="input-group" style={{ position: 'relative' }}>
-                <input name="password" type={showPassword ? 'text' : 'password'} placeholder="Password" value={form.password} onChange={handleChange} required />
-                <span style={{ position: 'absolute', right: 12, top: 10, cursor: 'pointer' }} onClick={() => setShowPassword((v) => !v)}>
-                  {showPassword ? <FaEyeSlash size={18} color="var(--brand-500)" /> : <FaEye size={18} color="var(--brand-500)" />}
-                </span>
-              </div>
-            </>
-          )}
+      <main>
+        <section className="auth-hero" id="welcome">
+          <img className="auth-hero-image" src="/images/clinic-hero.jpg" alt="" aria-hidden="true" />
+          <div className="auth-hero-shade" />
 
-          {mfaTicket && (
-            <>
-              <div className="input-group">
-                <input
-                  name="mfaCode"
-                  type="text"
-                  placeholder="Enter 6-digit MFA code"
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value)}
-                  autoFocus
-                  required
-                />
-              </div>
-              {mfaHint && (
-                <div className="login-row" style={{ justifyContent: 'flex-start', color: 'var(--brand-600)', fontWeight: 700 }}>
-                  {mfaHint}
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="login-row">
-            <label className="remember-label"><input type="checkbox" style={{ marginRight: 6 }} /> Remember me</label>
-            <span className="login-link" style={{ marginLeft: 'auto' }}>Forgot password?</span>
+          <div className="auth-hero-copy" data-reveal>
+            <p className="auth-eyebrow"><span /> INTELLIGENT HOSPITAL OPERATIONS</p>
+            <h1>See every patient.<br />Act on every signal.</h1>
+            <p className="auth-hero-lead">
+              One secure workspace for care teams to coordinate appointments, capacity,
+              medical records, and operational decisions in real time.
+            </p>
+            <button className="auth-primary-cta" type="button" onClick={focusWorkspaceAccess}>
+              Enter care workspace <FaArrowRight aria-hidden="true" />
+            </button>
+            <div className="auth-proof-row" aria-label="Platform capabilities">
+              <span><FaShieldAlt aria-hidden="true" /> Role-based access</span>
+              <span><FaHeartbeat aria-hidden="true" /> Live care operations</span>
+              <span><FaChartLine aria-hidden="true" /> Decision-ready analytics</span>
+            </div>
           </div>
 
-          {error && <div className="login-error"><FaExclamationCircle style={{ marginRight: 6, color: 'var(--danger-fg)' }} />{error}</div>}
-          <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Signing in...' : (mfaTicket ? 'Verify & Continue' : 'Sign In')}</button>
-        </form>
+          <aside className="auth-access-panel" aria-label="Workspace access" data-reveal>
+            <div className="auth-panel-heading">
+              <span className="auth-panel-kicker">SECURE ACCESS</span>
+              <span className="auth-live-indicator"><i /> Systems online</span>
+            </div>
+            <div className="login-logo" aria-hidden="true">
+              <FaClinicMedical className="logo-icon" />
+            </div>
+            <h2 className="login-title">Clinic Management</h2>
+            <div className="login-subtitle">{mfaTicket ? 'Multi-factor verification required' : 'Sign in to your care workspace'}</div>
 
-        <div className="login-link" style={{ marginTop: 18 }}>
-          <span>Don't have an account?</span>
-          <button type="button" className="login-register-btn" onClick={() => navigate(`/${ROUTES.REGISTER}`)}>Sign up</button>
-        </div>
-      </div>
+            <form onSubmit={handleSubmit} className="auth-form">
+              {!mfaTicket && (
+                <>
+                  <div className="input-group">
+                    <label htmlFor="login-email">Email address</label>
+                    <input id="login-email" name="email" type="email" autoComplete="username" placeholder="name@clinic.com" value={form.email} onChange={handleChange} required />
+                  </div>
+                  <div className="input-group" style={{ position: 'relative' }}>
+                    <label htmlFor="login-password">Password</label>
+                    <input id="login-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" value={form.password} onChange={handleChange} required />
+                    <button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword((v) => !v)}>
+                      {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {mfaTicket && (
+                <>
+                  <div className="input-group">
+                    <label htmlFor="login-mfa">Verification code</label>
+                    <input
+                      id="login-mfa"
+                      name="mfaCode"
+                      type="text"
+                      placeholder="Enter 6-digit MFA code"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value)}
+                      autoFocus
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      required
+                    />
+                  </div>
+                  {mfaHint && <div className="login-row auth-mfa-hint">{mfaHint}</div>}
+                </>
+              )}
+
+              {!mfaTicket && <div className="login-row login-security-note">Protected access for clinical and administrative teams.</div>}
+              {error && <div className="login-error" role="alert"><FaExclamationCircle aria-hidden="true" />{error}</div>}
+              <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Signing in...' : (mfaTicket ? 'Verify & Continue' : 'Sign In')}</button>
+            </form>
+
+            <div className="login-link">
+              <span>New patient?</span>
+              <button type="button" className="login-register-btn" aria-label="Sign up" onClick={() => navigate(`/${ROUTES.REGISTER}`)}>Create account</button>
+            </div>
+          </aside>
+
+          <div className="auth-floating-signal auth-floating-signal-one" aria-hidden="true">
+            <span>01</span><strong>Patient flow</strong><small>Live coordination</small>
+          </div>
+          <div className="auth-floating-signal auth-floating-signal-two" aria-hidden="true">
+            <span>02</span><strong>Care continuity</strong><small>One clinical picture</small>
+          </div>
+        </section>
+
+        <section className="auth-story" id="platform" data-reveal>
+          <div className="auth-story-copy">
+            <p className="auth-section-number">01 · OPERATIONS INTELLIGENCE</p>
+            <h2>From hospital activity<br />to confident decisions.</h2>
+            <p>Unify capacity, appointments, staffing signals, and handovers in a calm operational view built for fast-moving care teams.</p>
+            <ul>
+              <li>Real-time command center</li>
+              <li>Role-aware clinical workflows</li>
+              <li>Auditable operational handovers</li>
+            </ul>
+          </div>
+          <figure className="auth-story-visual auth-float-slow">
+            <img src="/images/operations-center.jpg" alt="Hospital clinicians coordinating inside a modern operations center" loading="lazy" />
+            <figcaption><span>LIVE OPERATIONS</span> Humans remain in control.</figcaption>
+          </figure>
+        </section>
+
+        <section className="auth-story auth-story-reverse" id="care-experience" data-reveal>
+          <div className="auth-story-copy">
+            <p className="auth-section-number">02 · HUMAN-CENTERED CARE</p>
+            <h2>Technology that leaves<br />room for empathy.</h2>
+            <p>Give every patient interaction the context it deserves while keeping sensitive information protected and accessible only to the right care role.</p>
+            <button className="auth-text-link" type="button" onClick={() => navigate(`/${ROUTES.REGISTER}`)}>
+              Open patient access <FaArrowRight aria-hidden="true" />
+            </button>
+          </div>
+          <figure className="auth-story-visual auth-float-delayed">
+            <img src="/images/patient-consultation.jpg" alt="Doctor having a compassionate consultation with an adult patient" loading="lazy" />
+            <figcaption><span>CONNECTED CARE</span> Context at every touchpoint.</figcaption>
+          </figure>
+        </section>
+      </main>
+
+      <footer className="auth-footer">
+        <div className="auth-brand auth-brand-footer"><span className="auth-brand-mark"><FaClinicMedical aria-hidden="true" /></span><span>CLINIC <small>CARE OS</small></span></div>
+        <p>Operational clarity for safer, more connected care.</p>
+        <button type="button" onClick={focusWorkspaceAccess}>Access workspace <FaArrowRight aria-hidden="true" /></button>
+      </footer>
     </div>
   );
 }

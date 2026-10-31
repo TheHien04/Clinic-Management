@@ -1,13 +1,17 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaCalendarAlt, FaUserMd, FaUser, FaChartBar, FaHeartbeat, FaRobot } from 'react-icons/fa';
+import {
+  FaArrowRight, FaBed, FaBolt, FaCalendarAlt, FaChartBar, FaClipboardCheck,
+  FaClipboardList, FaExclamationTriangle, FaHeartbeat, FaRobot, FaUser,
+  FaUserMd,
+} from 'react-icons/fa';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import './Dashboard.css';
 import './Common.css';
 import { ROUTES } from '../constants';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { getAppointmentsAPI } from '../services/appointments';
 import { getPatientsAPI } from '../services/patients';
 import { getDoctorsAPI, getDoctorsIntelligenceAPI } from '../services/doctors';
@@ -20,102 +24,34 @@ import {
   getInnovationHandoverHistory,
   saveInnovationHandover,
 } from '../services/innovation';
-
-const OPS_ALERTS_EVENT = 'ops-alerts:update';
-const DASHBOARD_AUTOPILOT_KEY = 'dashboard_autopilot_mode_v1';
-const DASHBOARD_HANDOVER_KEY = 'dashboard_handover_sbar_v1';
-const allowMockFallback = !import.meta.env.PROD;
-
-const pieColors = ['#0a7ea4', '#f29f05', '#1f8a5c', '#d64545', '#457b9d'];
-const statusWeight = {
-  completed: 0,
-  confirmed: 0,
-  pending: 1,
-  cancelled: 2,
-};
-
-const statusLabel = {
-  completed: 'Completed',
-  confirmed: 'Confirmed',
-  pending: 'Pending',
-  cancelled: 'Cancelled',
-};
-
-const fallbackAppointments = [
-  { id: 1, patient: 'Nguyen Van A', doctor: 'Dr. Smith', date: '2025-08-29', time: '09:00', status: 'confirmed' },
-  { id: 2, patient: 'Tran Thi B', doctor: 'Dr. John', date: '2025-08-29', time: '10:00', status: 'pending' },
-  { id: 3, patient: 'Le Van C', doctor: 'Dr. Smith', date: '2025-08-29', time: '11:00', status: 'completed' },
-  { id: 4, patient: 'Pham Thi D', doctor: 'Dr. Anna', date: '2025-08-29', time: '13:00', status: 'completed' },
-  { id: 5, patient: 'Nguyen Van A', doctor: 'Dr. Smith', date: '2025-08-29', time: '09:00', status: 'confirmed' },
-  { id: 6, patient: 'Nguyen Van B', doctor: 'Dr. John', date: '2025-08-29', time: '15:00', status: 'pending' },
-  { id: 7, patient: 'Le Van C', doctor: 'Dr. Smith', date: '2025-08-28', time: '08:30', status: 'completed' },
-  { id: 8, patient: 'Pham Thi D', doctor: 'Dr. Anna', date: '2025-08-28', time: '11:00', status: 'cancelled' },
-];
-
-const fallbackPatients = [
-  { id: 1, name: 'Nguyen Van A' },
-  { id: 2, name: 'Tran Thi B' },
-  { id: 3, name: 'Le Van C' },
-  { id: 4, name: 'Pham Thi D' },
-];
-
-const fallbackDoctors = [
-  { id: 1, name: 'Dr. Smith' },
-  { id: 2, name: 'Dr. John' },
-  { id: 3, name: 'Dr. Anna' },
-];
-
-const normalizeStatus = (status) => String(status || 'pending').toLowerCase();
-
-const normalizeAppointment = (item) => {
-  if (!item || typeof item !== 'object') return null;
-
-  if (item.AppointmentID || item.AppointmentDate) {
-    return {
-      id: item.AppointmentID,
-      date: item.AppointmentDate ? String(item.AppointmentDate).slice(0, 10) : '',
-      time: item.AppointmentTime ? String(item.AppointmentTime).slice(0, 5) : '',
-      status: normalizeStatus(item.Status),
-      patient: item.PatientName || `Patient #${item.PatientID || ''}`,
-      doctor: item.DoctorName || `Doctor #${item.DoctorID || ''}`,
-      notes: item.Notes || '',
-    };
-  }
-
-  return {
-    id: item.id,
-    date: item.date,
-    time: item.time,
-    status: normalizeStatus(item.status),
-    patient: item.patient,
-    doctor: item.doctor,
-    notes: item.notes || '',
-  };
-};
-
-const normalizePerson = (item, fallbackLabel) => {
-  if (!item || typeof item !== 'object') return null;
-
-  if (item.PatientID || item.DoctorID) {
-    const id = item.PatientID || item.DoctorID;
-    return {
-      id,
-      name: item.FullName || `${fallbackLabel} #${id}`,
-    };
-  }
-
-  return {
-    id: item.id,
-    name: item.name || `${fallbackLabel} #${item.id || ''}`,
-  };
-};
+import {
+  DASHBOARD_AUTOPILOT_KEY,
+  DASHBOARD_HANDOVER_KEY,
+  OPS_ALERTS_EVENT,
+  allowMockFallback,
+  fallbackAppointments,
+  fallbackDoctors,
+  fallbackPatients,
+  normalizeAppointment,
+  normalizePerson,
+  pieColors,
+  statusLabel,
+  statusWeight,
+} from '../features/dashboard/dashboardData';
+import HospitalOperatingModel from '../features/dashboard/components/HospitalOperatingModel';
 
 // PieChart tỷ lệ trạng thái appointments
 function StatusPieChart({ data }) {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const dominant = [...data].sort((a, b) => b.value - a.value)[0];
   return (
-    <div className="chart-widget">
-      <div className="chart-widget-title">Appointment Mix</div>
-      <ResponsiveContainer width="100%" height={220}>
+    <div className="chart-widget chart-widget-donut">
+      <div className="chart-widget-head">
+        <div><span>Flow composition</span><div className="chart-widget-title">Appointment mix</div></div>
+        <span className="chart-live-badge"><i /> Live</span>
+      </div>
+      <div className="chart-insight-line"><strong>{dominant?.name || 'No data'}</strong><span>is the largest segment · {total} total</span></div>
+      <ResponsiveContainer width="100%" height={228}>
         <PieChart>
           <Pie
             data={data}
@@ -123,19 +59,24 @@ function StatusPieChart({ data }) {
             nameKey="name"
             cx="50%"
             cy="50%"
-            outerRadius={80}
-            label={(entry) => `${entry.name}: ${entry.percent ? (entry.percent * 100).toFixed(0) : 0}%`}
+            innerRadius={63}
+            outerRadius={92}
+            paddingAngle={4}
+            cornerRadius={7}
+            stroke="none"
           >
             {data.map((entry, idx) => <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />)}
           </Pie>
-          <Tooltip formatter={(value) => [`${value} appointments`, 'Volume']} />
+          <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" className="donut-total">{total}</text>
+          <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" className="donut-caption">APPOINTMENTS</text>
+          <Tooltip formatter={(value) => [`${value} appointments`, 'Volume']} contentStyle={{ borderRadius: 4, border: '1px solid #cad4c8', boxShadow: '0 12px 28px rgba(8,47,43,.12)' }} />
         </PieChart>
       </ResponsiveContainer>
-      <div className="chart-legend-row">
+      <div className="chart-legend-grid">
         {data.map((d,idx) => (
-          <span key={d.name} className="legend-item">
+          <span key={d.name} className="legend-item-card">
             <span className="legend-swatch" style={{ background: pieColors[idx % pieColors.length] }} />
-            {d.name}: <b>{d.value}</b>
+            <span>{d.name}</span><b>{d.value}</b>
           </span>
         ))}
       </div>
@@ -150,16 +91,19 @@ function TopDoctors({ appointments }) {
     doctorCount[a.doctor] = (doctorCount[a.doctor] || 0) + 1;
   });
   const top = Object.entries(doctorCount).sort((a,b) => b[1]-a[1]).slice(0,3);
+  const maxCount = top[0]?.[1] || 1;
   return (
-    <div className="chart-widget">
-      <div className="chart-widget-title">Top Doctors (Most Appointments)</div>
-      <ul className="unstyled-list">
+    <div className="chart-widget chart-widget-leaderboard">
+      <div className="chart-widget-head"><div><span>Clinical capacity</span><div className="chart-widget-title">Top care teams</div></div><span className="chart-period-badge">This week</span></div>
+      <p className="chart-widget-note">Appointment volume by assigned clinician.</p>
+      <ul className="unstyled-list doctor-leaderboard">
         {top.map(([name,count],idx) => (
           <li key={name} className="top-doctor-item">
-            <span className="rank-pill">{idx + 1}</span>
-            {name} <span className="subtle">({count} appointments)</span>
+            <span className="doctor-rank">0{idx + 1}</span><span className="doctor-avatar">{name.replace('Dr. ', '').slice(0, 2).toUpperCase()}</span>
+            <div><strong>{name}</strong><span className="doctor-load-track"><i style={{ width: `${(count / maxCount) * 100}%` }} /></span></div><b>{count}</b>
           </li>
         ))}
+        {top.length === 0 && <li className="chart-list-empty">No clinician activity in this period.</li>}
       </ul>
     </div>
   );
@@ -168,11 +112,12 @@ function TopDoctors({ appointments }) {
 // Widget Recent Activities
 function RecentActivities({ activities }) {
   return (
-    <div className="chart-widget">
-      <div className="chart-widget-title">Recent Activities</div>
-      <ul className="unstyled-list">
+    <div className="chart-widget chart-widget-activity">
+      <div className="chart-widget-head"><div><span>Audit pulse</span><div className="chart-widget-title">Recent activity</div></div><span className="chart-live-badge"><i /> Live</span></div>
+      <p className="chart-widget-note">Latest transitions across the care network.</p>
+      <ul className="unstyled-list activity-timeline">
         {activities.length === 0 ? <li className="subtle">No recent activities.</li> : activities.map((act,idx) => (
-          <li key={idx} className="activity-item">{act}</li>
+          <li key={idx} className="activity-item"><span>{String(idx + 1).padStart(2, '0')}</span><i /><p>{act}</p></li>
         ))}
       </ul>
     </div>
@@ -180,19 +125,35 @@ function RecentActivities({ activities }) {
 }
 
 function KPIBarChart({ data }) {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  const peak = [...data].sort((a, b) => b.count - a.count)[0];
   return (
-    <div className="chart-widget">
-      <div className="chart-widget-title">Operational Load - Last 7 Days</div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#d8eef6" />
-          <XAxis dataKey="date" tickFormatter={d => d.slice(5)} />
-          <YAxis allowDecimals={false} />
-          <Tooltip formatter={(value) => [`${value} appointments`, 'Volume']} />
-          <Legend />
-          <Bar dataKey="count" fill="#0a7ea4" name="Appointments" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="chart-widget chart-widget-trend">
+      <div className="chart-widget-head">
+        <div><span>7-day throughput</span><div className="chart-widget-title">Operational load</div></div>
+        <span className="chart-period-badge">Last 7 days</span>
+      </div>
+      <div className="chart-metric-row">
+        <div><strong>{total}</strong><span>Total appointments</span></div>
+        <p>Peak <b>{peak?.date?.slice(5) || '—'}</b> · {peak?.count || 0} visits</p>
+      </div>
+      {total === 0 ? (
+        <div className="chart-empty-state"><div className="chart-empty-orbit"><i /></div><strong>Awaiting care-flow data</strong><span>New appointments will appear here as a live trend.</span></div>
+      ) : <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={data} margin={{ top: 12, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="loadGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#20bfd3" stopOpacity={0.58} />
+              <stop offset="100%" stopColor="#20bfd3" stopOpacity={0.03} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="#d8e5ea" strokeDasharray="2 6" />
+          <XAxis dataKey="date" tickFormatter={d => d.slice(5)} axisLine={false} tickLine={false} tick={{ fill: '#6f8796', fontSize: 11 }} dy={8} />
+          <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#6f8796', fontSize: 11 }} />
+          <Tooltip formatter={(value) => [`${value} appointments`, 'Volume']} labelFormatter={(label) => `Date ${label}`} contentStyle={{ borderRadius: 4, border: '1px solid #c7dce5', boxShadow: '0 12px 28px rgba(5,47,74,.12)' }} />
+          <Area type="monotone" dataKey="count" name="Appointments" stroke="#087f9b" strokeWidth={3} fill="url(#loadGradient)" activeDot={{ r: 6, fill: '#20bfd3', stroke: '#075b83', strokeWidth: 3 }} />
+        </AreaChart>
+      </ResponsiveContainer>}
     </div>
   );
 }
@@ -218,6 +179,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const insightRef = useRef(null);
   const warningsRef = useRef(null);
+  const capacityRef = useRef(null);
+  const handoverRef = useRef(null);
   const missionRef = useRef(null);
   const feedRef = useRef(null);
   const [feedRunning, setFeedRunning] = useState(true);
@@ -238,6 +201,7 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState(allowMockFallback ? fallbackAppointments : []);
   const [patients, setPatients] = useState(allowMockFallback ? fallbackPatients : []);
   const [doctors, setDoctors] = useState(allowMockFallback ? fallbackDoctors : []);
+  const [coreDataState, setCoreDataState] = useState('loading');
   const [handoverDraft, setHandoverDraft] = useState({
     situation: '',
     background: '',
@@ -266,10 +230,10 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const [appointmentsRows, patientsRows, doctorsRows, intelligencePayload, bedCensusPayload, handoverHistoryPayload, handoverAuditPayload] = await Promise.all([
-          getAppointmentsAPI({ limit: 300, offset: 0 }),
-          getPatientsAPI({ limit: 300, offset: 0 }),
-          getDoctorsAPI({ limit: 300, offset: 0 }),
-          getDoctorsIntelligenceAPI(),
+          getAppointmentsAPI({ limit: 2000, offset: 0 }).catch(() => null),
+          getPatientsAPI({ limit: 300, offset: 0 }).catch(() => null),
+          getDoctorsAPI({ limit: 300, offset: 0 }).catch(() => null),
+          getDoctorsIntelligenceAPI().catch(() => null),
           getInnovationBedCensus().catch(() => null),
           getInnovationHandoverHistory(6, { page: 1 }).catch(() => null),
           getInnovationHandoverAudits(12).catch(() => null),
@@ -370,12 +334,21 @@ export default function Dashboard() {
         }
 
         const hasCoreData = mappedAppointments.length > 0 && mappedPatients.length > 0 && mappedDoctors.length > 0;
+        const hasPartialData = mappedAppointments.length > 0 || mappedPatients.length > 0 || mappedDoctors.length > 0;
+
+        setAppointments(mappedAppointments);
+        setPatients(mappedPatients);
+        setDoctors(mappedDoctors);
 
         if (hasCoreData) {
-          setAppointments(mappedAppointments);
-          setPatients(mappedPatients);
-          setDoctors(mappedDoctors);
           setSourceLabel('Data source: Backend API (live operations snapshot)');
+          setCoreDataState('live');
+          return;
+        }
+
+        if (hasPartialData) {
+          setSourceLabel('Data source: Backend API (partial snapshot · retrying unavailable services)');
+          setCoreDataState(mappedAppointments.length ? 'live' : 'unavailable');
           return;
         }
 
@@ -386,6 +359,7 @@ export default function Dashboard() {
           setPatients([]);
           setDoctors([]);
           setSourceLabel('Data source: Degraded (backend data unavailable)');
+          setCoreDataState('unavailable');
         }
       } catch {
         if (!active) return;
@@ -396,6 +370,7 @@ export default function Dashboard() {
           setPatients([]);
           setDoctors([]);
           setSourceLabel('Data source: Degraded (API unavailable)');
+          setCoreDataState('unavailable');
         }
       }
     };
@@ -459,7 +434,15 @@ export default function Dashboard() {
     }
   }, []);
 
-  const today = useMemo(() => appointments.map((a) => a.date).sort().slice(-1)[0], [appointments]);
+  const today = useMemo(() => {
+    const latestAppointmentDate = appointments
+      .map((appointment) => appointment.date)
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+
+    return latestAppointmentDate || new Date().toISOString().slice(0, 10);
+  }, [appointments]);
 
   const kpi = useMemo(() => {
     const todayApps = appointments.filter(a => a.date === today);
@@ -1064,49 +1047,87 @@ export default function Dashboard() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="dashboard-content">
-          <h2>Health Operations Command Center</h2>
-          <p className="dashboard-subtitle"><FaHeartbeat /> Real-time visibility for appointment flow, capacity, and care continuity.</p>
-          <p className="dashboard-source-label">{sourceLabel}</p>
+        <main id="main-content" tabIndex="-1" className="dashboard-content">
+          <section className="ops-hero" aria-labelledby="ops-hero-title">
+            <span className="mission-sr-only">Health Operations Command Center</span>
+            <div className="ops-hero-copy">
+              <p className="ops-kicker"><span /> Live care operations</p>
+              <h1 id="ops-hero-title">Command every shift with <em>clarity.</em></h1>
+              <p className="ops-hero-lede">One clinical operating picture for patient flow, team capacity and the decisions that cannot wait.</p>
+              <div className="ops-hero-actions">
+                <button type="button" onClick={() => navigate(`/${ROUTES.APPOINTMENTS}`)}>Run appointment flow <span>↗</span></button>
+                <button type="button" onClick={() => navigate(`/${ROUTES.REPORTS}`)}>View intelligence</button>
+              </div>
+              <div className="ops-hero-meta"><span>{sourceLabel}</span><b>Updated live</b></div>
+            </div>
+            <div className="ops-hero-visual" aria-label="Hospital operations team coordinating patient care">
+              <img src="/images/operations-center.jpg" alt="Hospital operations team coordinating patient care" />
+              <div className="ops-image-wash" />
+              <article className="ops-float-card ops-float-primary"><small>Care network</small><strong>All systems coordinated</strong><span><i /> Live signal</span></article>
+              <article className="ops-float-card ops-float-secondary"><small>Completion</small><strong>{kpi.completionRate}%</strong><span>Today’s care loop</span></article>
+            </div>
+          </section>
+
+          <HospitalOperatingModel kpi={kpi} navigate={navigate} />
+
+          <div className="dashboard-section-intro">
+            <div><span>01 / Live pulse</span><h2>What needs attention now</h2></div>
+            <p><FaHeartbeat /> Real-time appointment flow, capacity and care continuity.</p>
+          </div>
           
           <div className="dashboard-stats-row">
             <div className="stats-container">
               <div className="stat-card">
                 <div className="stat-title"><FaCalendarAlt style={{color:'#0a7ea4'}}/>Today's Appointments</div>
-                <div className="stat-value">{kpi.today}</div>
+                <div className="stat-value">{coreDataState === 'unavailable' ? '—' : kpi.today}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-title"><FaUser style={{color:'#f29f05'}}/>Waiting</div>
-                <div className="stat-value">{kpi.waiting}</div>
+                <div className="stat-value">{coreDataState === 'unavailable' ? '—' : kpi.waiting === 0 ? 'Clear' : kpi.waiting}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-title"><FaChartBar style={{color:'#1f8a5c'}}/>Completed</div>
-                <div className="stat-value">{kpi.completed}</div>
+                <div className="stat-value">{coreDataState === 'unavailable' ? '—' : kpi.completed}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-title"><FaUserMd style={{color:'#0a7ea4'}}/>Doctors</div>
-                <div className="stat-value">{doctors.length}</div>
+                <div className="stat-value">{coreDataState === 'unavailable' ? '—' : doctors.length}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-title"><FaUser style={{color:'#0a7ea4'}}/>Patients</div>
-                <div className="stat-value">{patients.length}</div>
+                <div className="stat-value">{coreDataState === 'unavailable' ? '—' : patients.length}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-title"><FaHeartbeat style={{color:'#1f8a5c'}}/>Completion Rate</div>
-                <div className="stat-value">{kpi.completionRate}%</div>
+                <div className="stat-value">{coreDataState === 'unavailable' || kpi.today === 0 ? '—' : `${kpi.completionRate}%`}</div>
               </div>
             </div>
           </div>
 
-          <div className="dashboard-charts-row">
-            <KPIBarChart data={barChartData} />
-            <StatusPieChart data={statusPieData} />
-          </div>
+          <nav className="dashboard-control-rail" aria-label="Shift operations navigation">
+            <div className="control-rail-title"><span>Decision rail</span><strong>Signal → action</strong></div>
+            <button type="button" onClick={() => warningsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><FaExclamationTriangle aria-hidden="true"/><span><b>Risk desk</b><small>{earlyWarnings.length} active signals</small></span><FaArrowRight aria-hidden="true"/></button>
+            <button type="button" onClick={() => insightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><FaBolt aria-hidden="true"/><span><b>Intelligence</b><small>{insights.length} recommendations</small></span><FaArrowRight aria-hidden="true"/></button>
+            <button type="button" onClick={() => capacityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><FaBed aria-hidden="true"/><span><b>Capacity</b><small>{bedManagementBoard.length} wards tracked</small></span><FaArrowRight aria-hidden="true"/></button>
+            <button type="button" onClick={() => handoverRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><FaClipboardList aria-hidden="true"/><span><b>Handover</b><small>{handoverSavedAt ? 'Brief saved' : 'Brief pending'}</small></span><FaArrowRight aria-hidden="true"/></button>
+          </nav>
 
-          <div className="dashboard-charts-row">
-            <TopDoctors appointments={appointments} />
-            <RecentActivities activities={recentActivities} />
-          </div>
+          <details className="dashboard-analytics-drawer">
+            <summary>
+              <span><FaChartBar aria-hidden="true" /><b>Operational analytics</b><small>Open supporting charts and activity trends</small></span>
+              <FaArrowRight aria-hidden="true" />
+            </summary>
+            <div className="dashboard-analytics-drawer-body">
+              <div className="dashboard-charts-row">
+                <KPIBarChart data={barChartData} />
+                <StatusPieChart data={statusPieData} />
+              </div>
+              <div className="dashboard-charts-row">
+                <TopDoctors appointments={appointments} />
+                <RecentActivities activities={recentActivities} />
+              </div>
+            </div>
+          </details>
 
           <div ref={insightRef}>
             <AiInsightPanel insights={insights} />
@@ -1157,7 +1178,7 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <section className="dashboard-critical-care" aria-label="Critical care board">
+          <section className="dashboard-critical-care" aria-label="Critical care board" ref={capacityRef}>
             <div className="section-head-row">
               <h3>ER & ICU Operations</h3>
               <span className={`section-chip ${socketLinkState === 'connected' ? 'section-chip-live' : ''}`}>
@@ -1199,7 +1220,7 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <section className="dashboard-handover" aria-label="SBAR handover">
+          <section className="dashboard-handover" aria-label="SBAR handover" ref={handoverRef}>
             <div className="section-head-row">
               <h3>SBAR Shift Handover</h3>
               <div className="handover-head-actions">

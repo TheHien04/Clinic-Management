@@ -1,7 +1,7 @@
 import { STORAGE_KEYS } from '../constants';
 
 export function hasValidSession() {
-  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  const token = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
   const userRaw = localStorage.getItem(STORAGE_KEYS.USER);
 
   if (!token || !userRaw) {

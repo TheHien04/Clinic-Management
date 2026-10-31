@@ -7,7 +7,10 @@ import { getAllowedOrigins } from '../config/env.js';
 
 const STATE_CHANGE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-const isStrictOriginCheckEnabled = () => String(process.env.STRICT_ORIGIN_CHECK || 'false').toLowerCase() === 'true';
+const isStrictOriginCheckEnabled = () => {
+  const defaultValue = process.env.NODE_ENV === 'production' ? 'true' : 'false';
+  return String(process.env.STRICT_ORIGIN_CHECK || defaultValue).toLowerCase() === 'true';
+};
 
 const normalizeOrigin = (value) => {
   try {

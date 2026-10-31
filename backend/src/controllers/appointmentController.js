@@ -15,7 +15,7 @@ const fetchAppointmentRealtimeView = async (appointmentId) => {
     SELECT TOP 1
       a.AppointmentID,
       a.AppointmentDate,
-      a.AppointmentTime,
+      CONVERT(CHAR(5), a.AppointmentTime, 108) AS AppointmentTime,
       a.Status,
       a.PatientID,
       a.DoctorID,
@@ -43,7 +43,7 @@ export const getAllAppointments = async (req, res) => {
       SELECT 
         a.AppointmentID,
         a.AppointmentDate,
-        a.AppointmentTime,
+        CONVERT(CHAR(5), a.AppointmentTime, 108) AS AppointmentTime,
         a.Status,
         a.Notes,
         p.PatientID,
@@ -56,10 +56,10 @@ export const getAllAppointments = async (req, res) => {
       LEFT JOIN Patients p ON a.PatientID = p.PatientID
       LEFT JOIN Doctors d ON a.DoctorID = d.DoctorID
       LEFT JOIN Specialties s ON d.SpecialtyID = s.SpecialtyID
-      WHERE 1=1
+      WHERE (@clinicId IS NULL OR a.ClinicID = @clinicId)
     `;
 
-    const params = {};
+    const params = { clinicId: req.user?.clinicId || null };
 
     if (status) {
       query += ` AND a.Status = @status`;
@@ -84,8 +84,8 @@ export const getAllAppointments = async (req, res) => {
     query += ` ORDER BY a.AppointmentDate DESC, a.AppointmentTime DESC`;
     query += ` OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
     
-    params.offset = parseInt(offset);
-    params.limit = parseInt(limit);
+    params.offset = Math.max(0, Number.parseInt(String(offset), 10) || 0);
+    params.limit = Math.min(2000, Math.max(1, Number.parseInt(String(limit), 10) || 100));
 
     const result = await executeQuery(query, params);
 
@@ -123,10 +123,10 @@ export const getAppointmentById = async (req, res) => {
       LEFT JOIN Patients p ON a.PatientID = p.PatientID
       LEFT JOIN Doctors d ON a.DoctorID = d.DoctorID
       LEFT JOIN Specialties s ON d.SpecialtyID = s.SpecialtyID
-      WHERE a.AppointmentID = @id
+      WHERE a.AppointmentID = @id AND (@clinicId IS NULL OR a.ClinicID = @clinicId)
     `;
 
-    const result = await executeQuery(query, { id });
+    const result = await executeQuery(query, { id, clinicId: req.user?.clinicId || null });
 
     if (result.recordset.length === 0) {
       return res.status(404).json({
@@ -193,9 +193,10 @@ export const createAppointment = async (req, res) => {
 
     // Create appointment
     const insertQuery = `
-      INSERT INTO Appointments (PatientID, DoctorID, AppointmentDate, AppointmentTime, Status, Notes, CreatedDate)
+      INSERT INTO Appointments (PatientID, DoctorID, AppointmentDate, AppointmentTime, Status, Notes, ClinicID, CreatedDate)
       OUTPUT INSERTED.*
-      VALUES (@patientId, @doctorId, @appointmentDate, @appointmentTime, 'booked', @notes, GETDATE())
+      VALUES (@patientId, @doctorId, @appointmentDate, @appointmentTime, 'pending', @notes,
+        COALESCE(@clinicId, (SELECT TOP (1) ClinicID FROM Clinics ORDER BY ClinicID)), GETDATE())
     `;
 
     const result = await executeQuery(insertQuery, {
@@ -203,7 +204,8 @@ export const createAppointment = async (req, res) => {
       doctorId,
       appointmentDate,
       appointmentTime,
-      notes: notes || null
+      notes: notes || null,
+      clinicId: req.user?.clinicId || null,
     });
 
     res.status(201).json({
@@ -241,11 +243,12 @@ export const updateAppointment = async (req, res) => {
         Notes = COALESCE(@notes, Notes),
         UpdatedDate = GETDATE()
       OUTPUT INSERTED.*
-      WHERE AppointmentID = @id
+      WHERE AppointmentID = @id AND (@clinicId IS NULL OR ClinicID = @clinicId)
     `;
 
     const result = await executeQuery(updateQuery, {
       id,
+      clinicId: req.user?.clinicId || null,
       appointmentDate: appointmentDate || null,
       appointmentTime: appointmentTime || null,
       status: status || null,
@@ -288,10 +291,10 @@ export const deleteAppointment = async (req, res) => {
 
     const deleteQuery = `
       DELETE FROM Appointments
-      WHERE AppointmentID = @id
+      WHERE AppointmentID = @id AND (@clinicId IS NULL OR ClinicID = @clinicId)
     `;
 
-    const result = await executeQuery(deleteQuery, { id });
+    const result = await executeQuery(deleteQuery, { id, clinicId: req.user?.clinicId || null });
 
     if (result.rowsAffected[0] === 0) {
       return res.status(404).json({

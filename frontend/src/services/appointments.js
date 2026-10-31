@@ -15,6 +15,8 @@ const mapAppointmentFromBackend = (item) => {
       date: item.AppointmentDate ? String(item.AppointmentDate).slice(0, 10) : '',
       time: item.AppointmentTime ? String(item.AppointmentTime).slice(0, 5) : '',
       status: normalizeStatus(item.Status),
+      patientId: item.PatientID,
+      doctorId: item.DoctorID,
       patient: item.PatientName || `Patient #${item.PatientID || ''}`,
       doctor: item.DoctorName || `Doctor #${item.DoctorID || ''}`,
       fee: Number(item.Fee || 0),

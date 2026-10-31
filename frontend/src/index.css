@@ -1,27 +1,23 @@
-/* index.css for global styles and Tailwind integration */
+/* Global application styles and design-token integration. */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 :root {
   color-scheme: light;
-  --brand-50: #ecfaf8;
-  --brand-100: #d4f2ee;
-  --brand-200: #afe3d9;
-  --brand-500: #0a8d82;
-  --brand-600: #0b6e66;
-  --brand-700: #0b5751;
+  --brand-50: #eaf8fb;
+  --brand-100: #d4f1f6;
+  --brand-200: #a8e1eb;
+  --brand-500: #0b87a4;
+  --brand-600: #086b8f;
+  --brand-700: #075276;
 
   --surface-0: #ffffff;
-  --surface-1: #f3f8f8;
-  --surface-2: #e9f1f1;
-  --surface-border: #c9dddd;
+  --surface-1: #f2f8fb;
+  --surface-2: #e7f1f5;
+  --surface-border: #c7dce5;
 
-  --text-strong: #123636;
-  --text-normal: #2e5757;
-  --text-muted: #628282;
+  --text-strong: #123a52;
+  --text-normal: #31586d;
+  --text-muted: #668294;
 
   --success-bg: #eaf7ef;
   --success-fg: #1f7a42;
@@ -36,11 +32,33 @@
   --chart-orange: #e8891a;
   --chart-slate: #57797f;
 
-  --shadow-sm: 0 5px 16px rgba(12, 90, 87, 0.08);
-  --shadow-md: 0 18px 34px rgba(12, 90, 87, 0.11);
+  --shadow-sm: 0 5px 16px rgba(5, 47, 74, 0.08);
+  --shadow-md: 0 18px 34px rgba(5, 47, 74, 0.11);
   --radius-sm: 10px;
   --radius-md: 12px;
   --radius-lg: 18px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  transform: translateY(-160%);
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--text-strong);
+  color: var(--surface-0);
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--chart-sky);
+  outline-offset: 2px;
 }
 
 :root[data-theme='slate'] {

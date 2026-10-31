@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
-import { FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaClinicMedical, FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { registerAPI } from '../services/auth';
 import { ROUTES } from '../constants';
-import { useAuth } from '../contexts/AuthContext.jsx';
+import { useAuth } from '../contexts/auth-context';
 
 function Register() {
   const { establishSession } = useAuth();
@@ -60,7 +60,7 @@ function Register() {
         refreshToken: data.refreshToken,
       });
       setSuccess('Registration successful! Redirecting to dashboard...');
-      navigate(`/${ROUTES.DASHBOARD}`);
+      navigate(`/${ROUTES.PATIENT_PORTAL}`);
     } catch (err) {
       setError(err?.message || 'Registration failed. Please try again.');
     } finally {
@@ -70,21 +70,22 @@ function Register() {
 
   return (
     <div className="login-container">
-      <img className="login-bg-img" src="https://cdn.pixabay.com/photo/2017/08/06/00/09/people-2583492_1280.png" alt="hospital background" />
       <div className="login-card">
-        <div className="login-logo">
-          <img src="https://cdn-icons-png.flaticon.com/512/2966/2966484.png" alt="Clinic Logo" className="logo-img" />
+        <div className="login-logo" aria-hidden="true">
+          <FaClinicMedical className="logo-icon" />
         </div>
         <h2 className="login-title">Register Account</h2>
         <form onSubmit={handleSubmit} style={{width:'100%'}}>
           <div className="input-group">
-            <input name="email" type="text" placeholder="Email/Username" value={form.email} onChange={handleChange} required />
+            <label htmlFor="register-email">Email address</label>
+            <input id="register-email" name="email" type="email" autoComplete="username" placeholder="name@example.com" value={form.email} onChange={handleChange} required />
           </div>
           <div className="input-group" style={{position:'relative'}}>
-            <input name="password" type={showPassword ? 'text' : 'password'} placeholder="Password" value={form.password} onChange={handleChange} required />
-            <span style={{position:'absolute',right:12,top:10,cursor:'pointer'}} onClick={()=>setShowPassword(v=>!v)}>
+            <label htmlFor="register-password">Password</label>
+            <input id="register-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="At least 8 characters" value={form.password} onChange={handleChange} required />
+            <button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={()=>setShowPassword(v=>!v)}>
               {showPassword ? <FaEyeSlash size={18} color="var(--brand-500)" /> : <FaEye size={18} color="var(--brand-500)" />}
-            </span>
+            </button>
           </div>
           <div style={{fontSize:13,marginBottom:6}}>
             Password strength: <span style={{color: passwordStrength(form.password) >= 3 ? 'var(--success-fg)' : passwordStrength(form.password) === 2 ? 'var(--warning-fg)' : 'var(--danger-fg)',fontWeight:600}}>
@@ -92,13 +93,14 @@ function Register() {
             </span>
           </div>
           <div className="input-group" style={{position:'relative'}}>
-            <input name="confirm" type={showConfirm ? 'text' : 'password'} placeholder="Confirm Password" value={form.confirm} onChange={handleChange} required />
-            <span style={{position:'absolute',right:12,top:10,cursor:'pointer'}} onClick={()=>setShowConfirm(v=>!v)}>
+            <label htmlFor="register-confirm">Confirm password</label>
+            <input id="register-confirm" name="confirm" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" placeholder="Repeat your password" value={form.confirm} onChange={handleChange} required />
+            <button type="button" className="password-toggle" aria-label={showConfirm ? 'Hide confirmed password' : 'Show confirmed password'} aria-pressed={showConfirm} onClick={()=>setShowConfirm(v=>!v)}>
               {showConfirm ? <FaEyeSlash size={18} color="var(--brand-500)" /> : <FaEye size={18} color="var(--brand-500)" />}
-            </span>
+            </button>
           </div>
-          {error && <div className="login-error"><FaExclamationCircle style={{marginRight:6,color:'var(--danger-fg)'}} />{error}</div>}
-          {success && <div className="login-success">{success}</div>}
+          {error && <div className="login-error" role="alert"><FaExclamationCircle aria-hidden="true" style={{marginRight:6,color:'var(--danger-fg)'}} />{error}</div>}
+          {success && <div className="login-success" role="status">{success}</div>}
           <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Registering...' : 'Register'}</button>
         </form>
         <div className="login-link" style={{marginTop:18}}>

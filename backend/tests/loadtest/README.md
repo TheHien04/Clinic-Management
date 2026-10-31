@@ -10,7 +10,7 @@
    ```
    You can override BASE_URL, USERNAME, PASSWORD with env vars:
    ```bash
-   BASE_URL=http://localhost:5000 USERNAME=test@clinic.com PASSWORD=Password123! k6 run backend/tests/loadtest/appointments.k6.js
+   BASE_URL=http://localhost:5055 USERNAME=test@clinic.com PASSWORD=Password123! k6 run backend/tests/loadtest/appointments.k6.js
    ```
 
 ## Scripts

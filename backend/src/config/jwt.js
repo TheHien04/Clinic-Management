@@ -23,7 +23,7 @@ const getJwtEnv = (name, fallback) => {
 
 export const jwtConfig = {
   secret: getJwtEnv('JWT_SECRET', 'default_secret_key_change_in_production'),
-  expiresIn: process.env.JWT_EXPIRE || '7d',
+  expiresIn: process.env.JWT_EXPIRE || '15m',
   refreshSecret: getJwtEnv('JWT_REFRESH_SECRET', 'default_refresh_secret'),
   refreshExpiresIn: process.env.JWT_REFRESH_EXPIRE || '30d',
 };

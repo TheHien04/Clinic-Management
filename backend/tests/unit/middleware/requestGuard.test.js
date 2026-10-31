@@ -34,6 +34,43 @@ describe('stateChangeOriginGuard', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
+  it('allows safe methods without evaluating origin policy', () => {
+    process.env.STRICT_ORIGIN_CHECK = 'true';
+    const req = { method: 'GET', headers: { origin: 'http://evil.com' } };
+    const res = createRes();
+    const next = vi.fn();
+
+    stateChangeOriginGuard(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('uses referer origin when the Origin header is absent', () => {
+    process.env.STRICT_ORIGIN_CHECK = 'true';
+    const req = {
+      method: 'PATCH',
+      headers: { referer: 'http://localhost:5173/patients' },
+    };
+    const res = createRes();
+    const next = vi.fn();
+
+    stateChangeOriginGuard(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows non-browser clients without origin headers', () => {
+    process.env.STRICT_ORIGIN_CHECK = 'true';
+    const req = { method: 'POST', headers: {} };
+    const res = createRes();
+    const next = vi.fn();
+
+    stateChangeOriginGuard(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
   it('blocks state-changing request from disallowed origin when strict check is enabled', () => {
     process.env.STRICT_ORIGIN_CHECK = 'true';
     const req = { method: 'POST', headers: { origin: 'http://evil.com' } };

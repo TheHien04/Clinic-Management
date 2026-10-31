@@ -8,9 +8,7 @@ import './Appointments.css';
 import Spinner from '../components/Spinner';
 import { ROUTES } from '../constants';
 
-const StackedBarStatusChart = lazy(() => import('../components/StackedBarStatusChart'));
 const AppointmentCalendarChart = lazy(() => import('../components/AppointmentCalendarChart'));
-const DonutChart = lazy(() => import('../components/DonutChart'));
 
 
 const initialAppointments = [
@@ -37,6 +35,7 @@ export default function Appointments() {
   const [denseTable, setDenseTable] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 900);
   const [mobileActionsRowId, setMobileActionsRowId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const searchInputRef = useRef(null);
   const tableRef = useRef(null);
   const calendarRef = useRef(null);
@@ -184,12 +183,6 @@ export default function Appointments() {
   // Badge trạng thái
   const statusBadge = (status) => {
     const normalized = String(status || '').toLowerCase();
-    let icon = '';
-    if (normalized === 'pending') icon = '⏳';
-    if (normalized === 'confirmed') icon = '✔️';
-    if (normalized === 'completed') icon = '✅';
-    if (normalized === 'cancelled') icon = '❌';
-    if (normalized === 'checked-in') icon = '🟢';
 
     const statusClass = [
       'pending',
@@ -203,7 +196,7 @@ export default function Appointments() {
 
     return (
       <span className={`ap-status-chip ${statusClass}`}>
-        <span>{icon}</span> {status}
+        <span className="ap-status-dot" aria-hidden="true" /> {status}
       </span>
     );
   };
@@ -328,17 +321,6 @@ export default function Appointments() {
     return () => window.removeEventListener('appointments:command', onCommand);
   }, [runAppointmentsCommand]);
 
-  // ...existing code...
-  // Biểu đồ tỷ lệ trạng thái (Pie chart)
-  const pieData = (() => {
-    const map = {};
-    appointments.forEach(a => {
-      map[a.status] = (map[a.status] || 0) + 1;
-    });
-    return Object.entries(map).map(([status, value]) => ({ status, value }));
-  })();
-  const pieColors = ['var(--brand-500)', 'var(--warning-fg)', 'var(--success-fg)', 'var(--danger-fg)', '#0288d1'];
-
   // Lịch hẹn trong 2 giờ tới
   const now = new Date();
   const upcoming = appointments.filter(a => {
@@ -353,6 +335,27 @@ export default function Appointments() {
   if (filter.date) filterSummary.push(`Date: ${filter.date}`);
   if (filter.doctor) filterSummary.push(`Doctor: ${filter.doctor}`);
   if (filter.status) filterSummary.push(`Status: ${filter.status}`);
+
+  const selectedRows = appointments.filter((item) => selectedIds.includes(item.id));
+  const allFilteredSelected = filteredAppointments.length > 0 && filteredAppointments.every((item) => selectedIds.includes(item.id));
+  const toggleAppointmentSelection = (id) => setSelectedIds((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]);
+  const toggleAllFiltered = () => setSelectedIds((current) => allFilteredSelected
+    ? current.filter((id) => !filteredAppointments.some((item) => item.id === id))
+    : [...new Set([...current, ...filteredAppointments.map((item) => item.id)])]);
+  const handleBulkStatus = (mode) => {
+    const eligibleIds = selectedRows
+      .filter((item) => mode === 'confirm' ? item.status === 'pending' : item.status === 'confirmed' && !item.checkedIn)
+      .map((item) => item.id);
+    if (!eligibleIds.length) {
+      setToast({ message: `No selected appointments are eligible to ${mode}.`, type: 'warning' });
+      return;
+    }
+    setAppointments((current) => current.map((item) => eligibleIds.includes(item.id)
+      ? { ...item, status: mode === 'confirm' ? 'confirmed' : 'checked-in', checkedIn: mode === 'check-in' ? true : item.checkedIn }
+      : item));
+    setSelectedIds([]);
+    setToast({ message: `${eligibleIds.length} appointment(s) updated successfully.`, type: 'success' });
+  };
 
   const renderRowActions = (item) => {
     const confirmAction = item.status === 'pending' ? (
@@ -430,9 +433,29 @@ export default function Appointments() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="page-content">
+        <main id="main-content" tabIndex="-1" className="page-content">
           <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
-          <h2 className="page-title">Appointments</h2>
+          <section className="ap-hero" aria-labelledby="appointments-title">
+            <div className="ap-hero-main">
+              <p className="ap-hero-kicker"><span /> Patient flow / live</p>
+              <h1 id="appointments-title">Flow, not <em>friction.</em></h1>
+              <p>Coordinate arrivals, clinical time and follow-up from one precise care timeline.</p>
+              <button type="button" onClick={handleOpenNew}>Book a new appointment <span>↗</span></button>
+            </div>
+            <div className="ap-hero-visual">
+              <img src="/images/patient-consultation.jpg" alt="Clinician consulting with a patient" />
+              <div className="ap-hero-stat ap-stat-a"><small>Total flow</small><strong>{appointments.length}</strong><span>appointments</span></div>
+              <div className="ap-hero-stat ap-stat-b"><small>Confirmed</small><strong>{appointments.filter((item) => item.status === 'confirmed').length}</strong><span>ready for care</span></div>
+            </div>
+            <div className="ap-hero-side">
+              <span>Today’s signal</span>
+              <strong>{appointments.filter((item) => item.status === 'pending').length}</strong>
+              <p>appointments need confirmation</p>
+              <button type="button" onClick={() => setFilter((current) => ({ ...current, status: 'pending' }))}>Review queue →</button>
+            </div>
+          </section>
+
+          <div className="ap-section-intro"><span>01 / Orchestration</span><h2>Appointment command</h2><p>Move from request to care without losing context.</p></div>
 
           <section className="ap-command-bar ap-stagger ap-delay-1" aria-label="Global command bar for appointments">
             <div className="ap-command-bar-left">
@@ -488,25 +511,32 @@ export default function Appointments() {
             </div>
           )}
           
-          {/* Biểu đồ thống kê */}
-          <div className="charts-row ap-stagger ap-delay-2">
-            <div className="chart-card">
-              <div className="chart-title">Appointments by Status (Stacked Bar)</div>
-              <Suspense fallback={chartFallback}>
-                <StackedBarStatusChart appointments={appointments} />
-              </Suspense>
+          <section className="ap-flow-desk ap-stagger ap-delay-2" aria-labelledby="ap-flow-title">
+            <div className="ap-flow-head"><div><span>Live care lanes</span><h3 id="ap-flow-title">Move each appointment to the next action</h3></div><small>{appointments.length} appointments in scope</small></div>
+            <div className="ap-flow-lanes">
+              {[
+                ['pending', 'Review requests', 'Verify details and reserve clinical time'],
+                ['confirmed', 'Prepare arrival', 'Patient is ready for check-in'],
+                ['checked-in', 'Route to care', 'Patient is waiting for the clinician'],
+                ['completed', 'Close the loop', 'Record outcome and follow-up'],
+                ['cancelled', 'Recover capacity', 'Offer the next appropriate slot'],
+              ].map(([status, label, description], index) => {
+                const count = appointments.filter((item) => item.status === status).length;
+                return (
+                  <button key={status} type="button" className={`ap-flow-lane is-${status}`} onClick={() => {
+                    setFilter((current) => ({ ...current, status }));
+                    window.setTimeout(() => tableRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 80);
+                  }}>
+                    <span className="ap-flow-index">0{index + 1}</span><span><b>{label}</b><small>{description}</small></span><strong>{count}</strong>
+                  </button>
+                );
+              })}
             </div>
-            <div className="chart-card">
-              <div className="chart-title">Appointment Status Ratio</div>
-              <Suspense fallback={chartFallback}>
-                <DonutChart
-                  data={pieData.map(d => d.value)}
-                  colors={pieColors}
-                  labels={pieData.map(d => d.status)}
-                />
-              </Suspense>
+            <div className="ap-flow-next">
+              <div><span>Next operational move</span><b>{smartQueueRecommendations[0]?.patient || 'Queue is clear'}</b><small>{smartQueueRecommendations[0] ? `${smartQueueRecommendations[0].action} · ${smartQueueRecommendations[0].recommendedSlot}` : 'No pending or cancelled appointment needs recovery.'}</small></div>
+              <button type="button" onClick={() => smartQueueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Open smart queue →</button>
             </div>
-          </div>
+          </section>
           
           <div className="filter-row ap-stagger ap-delay-3">
             <button onClick={handleOpenNew} className="btn-primary">
@@ -588,11 +618,20 @@ export default function Appointments() {
               </table>
             </div>
           </section>
+
+          {selectedIds.length > 0 && (
+            <div className="ap-bulk-bar" role="region" aria-label="Bulk appointment actions">
+              <div><strong>{selectedIds.length}</strong><span>appointments selected</span></div>
+              <p>{selectedRows.filter((item) => item.status === 'pending').length} pending · {selectedRows.filter((item) => item.status === 'confirmed').length} ready for check-in</p>
+              <div><button type="button" onClick={() => handleBulkStatus('confirm')}>Confirm pending</button><button type="button" onClick={() => handleBulkStatus('check-in')}>Check in ready</button><button type="button" onClick={() => setSelectedIds([])}>Clear</button></div>
+            </div>
+          )}
           
           <div className={`table-wrapper ap-table-shell ap-stagger ap-delay-5 ${denseTable ? 'is-dense' : ''}`} ref={tableRef}>
             <table className="data-table ap-main-table">
               <thead>
                 <tr>
+                  <th className="ap-select-col"><input type="checkbox" aria-label="Select all filtered appointments" checked={allFilteredSelected} onChange={toggleAllFiltered} /></th>
                   <th className="ap-col-sticky-id">ID</th>
                   <th className="ap-col-sticky-patient">Patient</th>
                   <th>Doctor</th>
@@ -604,7 +643,8 @@ export default function Appointments() {
               </thead>
               <tbody>
                 {filteredAppointments.map((item) => (
-                  <tr key={item.id}>
+                  <tr key={item.id} className={selectedIds.includes(item.id) ? 'is-selected' : ''}>
+                    <td className="ap-select-col"><input type="checkbox" aria-label={`Select appointment ${item.id}`} checked={selectedIds.includes(item.id)} onChange={() => toggleAppointmentSelection(item.id)} /></td>
                     <td className="ap-col-sticky-id">{item.id}</td>
                     <td className="ap-col-sticky-patient">{item.patient}</td>
                     <td>{item.doctor}</td>

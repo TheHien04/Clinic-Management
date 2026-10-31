@@ -1,10 +1,11 @@
 import express from 'express';
 import { getAllStaff, getStaffById, createStaff, updateStaff, deleteStaff } from '../controllers/staffController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.use(authMiddleware);
+router.use(authorize('admin', 'manager'));
 
 router.get('/', getAllStaff);
 router.get('/:id', getStaffById);

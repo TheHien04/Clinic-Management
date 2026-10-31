@@ -18,6 +18,15 @@ export const getPatientsAPI = async (filters = {}) => {
 };
 
 /**
+ * Get governed population analytics and transparent operational risk cohorts.
+ * The returned score is explicitly non-diagnostic.
+ */
+export const getPatientIntelligenceAPI = async () => {
+  const response = await apiClient.get(`${API_ENDPOINTS.PATIENTS}/intelligence/overview`);
+  return response.data;
+};
+
+/**
  * Get patient by ID
  * @param {number} id - Patient ID
  * @returns {Promise<Object>} Patient data
@@ -70,6 +79,7 @@ export const deletePatientAPI = async (id) => {
 
 export default {
   getPatientsAPI,
+  getPatientIntelligenceAPI,
   getPatientByIdAPI,
   getPatientHistoryAPI,
   createPatientAPI,

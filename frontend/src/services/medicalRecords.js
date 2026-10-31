@@ -13,7 +13,7 @@ const MEDICAL_RECORDS_URL = '/medical-records';
  */
 export const getMedicalRecordsAPI = async (params = {}) => {
   const response = await api.get(MEDICAL_RECORDS_URL, { params });
-  return response.data;
+  return response;
 };
 
 /**
@@ -23,7 +23,7 @@ export const getMedicalRecordsAPI = async (params = {}) => {
  */
 export const getMedicalRecordByIdAPI = async (id) => {
   const response = await api.get(`${MEDICAL_RECORDS_URL}/${id}`);
-  return response.data;
+  return response;
 };
 
 /**
@@ -33,7 +33,7 @@ export const getMedicalRecordByIdAPI = async (id) => {
  */
 export const getMedicalRecordsByPatientAPI = async (patientId) => {
   const response = await api.get(`${MEDICAL_RECORDS_URL}/patient/${patientId}`);
-  return response.data;
+  return response;
 };
 
 /**
@@ -48,7 +48,7 @@ export const getMedicalRecordsByPatientAPI = async (patientId) => {
  */
 export const createMedicalRecordAPI = async (data) => {
   const response = await api.post(MEDICAL_RECORDS_URL, data);
-  return response.data;
+  return response;
 };
 
 /**
@@ -59,7 +59,7 @@ export const createMedicalRecordAPI = async (data) => {
  */
 export const updateMedicalRecordAPI = async (id, data) => {
   const response = await api.put(`${MEDICAL_RECORDS_URL}/${id}`, data);
-  return response.data;
+  return response;
 };
 
 /**
@@ -69,7 +69,7 @@ export const updateMedicalRecordAPI = async (id, data) => {
  */
 export const deleteMedicalRecordAPI = async (id) => {
   const response = await api.delete(`${MEDICAL_RECORDS_URL}/${id}`);
-  return response.data;
+  return response;
 };
 
 export default {

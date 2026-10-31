@@ -3,6 +3,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { jwtConfig } from '../config/jwt.js';
 
 /**
@@ -23,7 +24,10 @@ export const generateToken = (payload) => {
  */
 export const generateRefreshToken = (payload) => {
   return jwt.sign(payload, jwtConfig.refreshSecret, {
-    expiresIn: jwtConfig.refreshExpiresIn
+    expiresIn: jwtConfig.refreshExpiresIn,
+    // A unique token identifier makes every rotation cryptographically
+    // distinct even when two tokens are minted during the same second.
+    jwtid: crypto.randomUUID(),
   });
 };
 

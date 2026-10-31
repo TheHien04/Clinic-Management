@@ -3,20 +3,22 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
 import AvatarIcon from './AvatarIcon';
-import { FaClinicMedical, FaCog, FaQuestionCircle, FaCommentDots, FaCircle, FaUserCircle, FaPalette, FaLock, FaUpload, FaBook, FaEnvelope, FaStar, FaAngleDoubleLeft, FaAngleDoubleRight, FaGlobeEurope, FaUserInjured, FaBell } from 'react-icons/fa';
+import { FaClinicMedical, FaCog, FaQuestionCircle, FaCommentDots, FaCircle, FaUserCircle, FaPalette, FaLock, FaUpload, FaBook, FaEnvelope, FaStar, FaAngleDoubleLeft, FaAngleDoubleRight, FaGlobeEurope, FaUserInjured, FaBell, FaThLarge, FaCalendarCheck, FaChartLine, FaFileMedicalAlt, FaFlask, FaDna } from 'react-icons/fa';
 import { ROUTES, STORAGE_KEYS } from '../constants';
+import { useAuth } from '../contexts/auth-context';
 
 const navItems = [
-  { key: ROUTES.DASHBOARD, label: 'Dashboard', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.APPOINTMENTS, label: 'Appointments', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.PATIENTS, label: 'Patients', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.DOCTORS, label: 'Doctors', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.REPORTS, label: 'Reports', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.MEDICAL_RECORDS, label: 'Medical Records', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.INNOVATION_LAB, label: 'Innovation Lab', icon: <FaClinicMedical style={{marginRight:8}}/> },
-  { key: ROUTES.NOTIFICATIONS, label: 'Notifications', icon: <FaBell style={{marginRight:8}}/> },
-  { key: ROUTES.HOSPITAL_PORTAL, label: 'Hospital Portal', icon: <FaGlobeEurope style={{marginRight:8}}/> },
-  { key: ROUTES.PATIENT_PORTAL, label: 'Patient Portal', icon: <FaUserInjured style={{marginRight:8}}/> },
+  { key: ROUTES.DASHBOARD, label: 'Dashboard', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist'], icon: <FaThLarge aria-hidden="true" /> },
+  { key: ROUTES.APPOINTMENTS, label: 'Appointments', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist'], icon: <FaCalendarCheck aria-hidden="true" /> },
+  { key: ROUTES.PATIENTS, label: 'Patients', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist'], icon: <FaUserInjured aria-hidden="true" /> },
+  { key: ROUTES.DOCTORS, label: 'Doctors', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist'], icon: <FaUserCircle aria-hidden="true" /> },
+  { key: ROUTES.REPORTS, label: 'Reports', roles: ['admin', 'manager', 'supervisor', 'doctor'], icon: <FaChartLine aria-hidden="true" /> },
+  { key: ROUTES.MEDICAL_RECORDS, label: 'Medical Records', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse'], icon: <FaFileMedicalAlt aria-hidden="true" /> },
+  { key: ROUTES.INNOVATION_LAB, label: 'Innovation Lab', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse'], icon: <FaFlask aria-hidden="true" /> },
+  { key: ROUTES.BIOINFORMATICS, label: 'Bioinformatics', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse'], icon: <FaDna aria-hidden="true" /> },
+  { key: ROUTES.NOTIFICATIONS, label: 'Notifications', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist', 'patient', 'user'], icon: <FaBell aria-hidden="true" /> },
+  { key: ROUTES.HOSPITAL_PORTAL, label: 'Hospital Portal', roles: ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist'], icon: <FaGlobeEurope aria-hidden="true" /> },
+  { key: ROUTES.PATIENT_PORTAL, label: 'Patient Portal', roles: ['patient', 'user'], icon: <FaUserInjured aria-hidden="true" /> },
 ];
 
 const shortcuts = [
@@ -48,20 +50,26 @@ const readRecentRoutes = () => {
 };
 
 export default function Sidebar() {
+  const { user: authUser, changePassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const currentPage = location.pathname.slice(1) || ROUTES.DASHBOARD; // Remove leading slash
   
-  // Mock user  
-  const user = { name: 'hiendepzai', online: true };
+  const user = { name: authUser?.name || authUser?.email || 'Clinic user', online: true };
+  const role = String(authUser?.role || '').toLowerCase();
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
+  const modalRef = React.useRef(null);
+  const modalOpenerRef = React.useRef(null);
   const [modal, setModal] = useState(null);
   const [activeTheme, setActiveTheme] = useState(getStoredTheme);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');
   const [avatar, setAvatar] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdStatus, setPwdStatus] = useState('');
   const [recentRoutes, setRecentRoutes] = useState(readRecentRoutes);
 
   React.useEffect(() => {
@@ -116,9 +124,24 @@ export default function Sidebar() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
+    const previousFocus = modalOpenerRef.current;
+    const focusable = modalRef.current?.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    focusable?.[0]?.focus();
+
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         closeModal();
+      }
+      if (event.key === 'Tab' && focusable?.length) {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -127,6 +150,7 @@ export default function Sidebar() {
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus?.();
     };
   }, [modal, closeModal]);
 
@@ -171,18 +195,23 @@ export default function Sidebar() {
           {/* Change password form row (full width) */}
           {showChangePwd && (
             <div style={{gridColumn:'2/4',marginLeft:0}}>
-              <form onSubmit={e => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 setPwdLoading(true);
-                setTimeout(() => {
-                  setPwdLoading(false);
+                setPwdStatus('');
+                const result = await changePassword(currentPwd, newPwd);
+                setPwdLoading(false);
+                setPwdStatus(result.success ? result.message : result.error);
+                if (result.success) {
                   setShowChangePwd(false);
+                  setCurrentPwd('');
                   setNewPwd('');
-                  alert('Password changed!');
-                }, 1200);
-              }} style={{display:'flex',alignItems:'center',gap:10}}>
-                <input type="password" value={newPwd} onChange={e=>setNewPwd(e.target.value)} placeholder="New password" style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--surface-border)'}} required />
+                }
+              }} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                <input aria-label="Current password" autoComplete="current-password" type="password" value={currentPwd} onChange={e=>setCurrentPwd(e.target.value)} placeholder="Current password" style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--surface-border)'}} required />
+                <input aria-label="New password" autoComplete="new-password" type="password" value={newPwd} onChange={e=>setNewPwd(e.target.value)} placeholder="New password" style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--surface-border)'}} required />
                 <button type="submit" style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--brand-500)',background:'var(--brand-500)',color:'#fff',fontWeight:600}} disabled={pwdLoading}>{pwdLoading ? 'Saving...' : 'Save'}</button>
+                {pwdStatus && <span role="status">{pwdStatus}</span>}
               </form>
             </div>
           )}
@@ -292,22 +321,31 @@ export default function Sidebar() {
         className="sidebar-collapse-btn"
         onClick={() => setCollapsed((prev) => !prev)}
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
       >
         {collapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
       </button>
-      <div className="sidebar-logo">
-        <FaClinicMedical size={32} style={{marginBottom:8}}/>
+      <div className="sidebar-brand">
+        <div className="sidebar-logo"><FaClinicMedical aria-hidden="true" /></div>
+        <div className="sidebar-brand-copy">
+          <strong>CLINIC</strong>
+          <span>Care OS / 01</span>
+        </div>
       </div>
-      <div className="sidebar-title">Clinic Management</div>
+      <div className="sidebar-title">Care Operations</div>
       <nav className="sidebar-nav">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item, index) => (
           <button
             key={item.key}
             className={`sidebar-link${currentPage === item.key ? ' active' : ''}`}
+            aria-current={currentPage === item.key ? 'page' : undefined}
             onClick={() => navigate(`/${item.key}`)}
             style={{ background: 'none', border: 'none', width: '100%', textAlign: collapsed ? 'center' : 'left', cursor: 'pointer', display:'flex', alignItems:'center', gap:8 }}
           >
-            {item.icon}<span className="sidebar-link-label">{item.label}</span>
+            <span className="sidebar-link-index">{String(index + 1).padStart(2, '0')}</span>
+            <span className="sidebar-link-icon">{item.icon}</span>
+            <span className="sidebar-link-label">{item.label}</span>
           </button>
         ))}
       </nav>
@@ -324,7 +362,7 @@ export default function Sidebar() {
         </div>
         <div className="sidebar-shortcuts">
           {shortcuts.map(s => (
-            <button key={s.key} className="sidebar-shortcut-btn" title={s.label} onClick={() => setModal(s.key)}>
+            <button key={s.key} className="sidebar-shortcut-btn" aria-label={s.label} title={s.label} onClick={(event) => { modalOpenerRef.current = event.currentTarget; setModal(s.key); }}>
               {s.icon}
             </button>
           ))}
@@ -332,7 +370,7 @@ export default function Sidebar() {
         <div className="sidebar-recents" aria-label="Recently visited modules">
           <div className="sidebar-recents-title">Recent</div>
           <div className="sidebar-recents-list">
-            {recentRoutes.map((route) => (
+            {recentRoutes.filter((route) => visibleNavItems.some((item) => item.key === route)).map((route) => (
               <button
                 key={route}
                 type="button"
@@ -349,8 +387,8 @@ export default function Sidebar() {
       {/* Modal popup cho shortcut */}
       {modal && createPortal(
         <div className="sidebar-modal-overlay" onClick={closeModal}>
-          <div className="sidebar-modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h3 className="sidebar-modal-title">{modalContent[modal]?.title}</h3>
+          <div ref={modalRef} className="sidebar-modal-card" role="dialog" aria-modal="true" aria-labelledby="sidebar-modal-title" onClick={(event) => event.stopPropagation()}>
+            <h3 id="sidebar-modal-title" className="sidebar-modal-title">{modalContent[modal]?.title}</h3>
             <div className="sidebar-modal-body">{modalContent[modal]?.content}</div>
             <button className="sidebar-modal-close" onClick={closeModal}>Close</button>
           </div>

@@ -29,7 +29,8 @@ export const authMiddleware = (req, res, next) => {
     req.user = {
       id: decoded.id,
       email: decoded.email,
-      role: decoded.role
+      role: decoded.role,
+      clinicId: decoded.clinicId || null,
     };
     
     next();
@@ -68,7 +69,10 @@ export const authorize = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    const userRole = String(req.user.role || '').toLowerCase();
+    const allowedRoles = roles.map((role) => String(role).toLowerCase());
+
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: 'Access forbidden: insufficient permissions'

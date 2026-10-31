@@ -4,12 +4,32 @@
 
 import express from 'express';
 import { uploadSingle, uploadMultiple } from '../middleware/upload.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authorize } from '../middleware/auth.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const router = express.Router();
 
 // All upload routes require authentication
 router.use(authMiddleware);
+router.use(authorize('admin', 'manager', 'supervisor', 'doctor', 'nurse'));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadRoot = path.resolve(__dirname, '../../uploads');
+
+router.get('/files/:filename', (req, res, next) => {
+  const filename = path.basename(String(req.params.filename || ''));
+  if (!filename || filename !== req.params.filename) {
+    return res.status(400).json({ success: false, message: 'Invalid filename' });
+  }
+
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  return res.sendFile(filename, { root: uploadRoot, dotfiles: 'deny' }, (error) => {
+    if (error) next(error);
+  });
+});
 
 /**
  * Upload single file
@@ -32,7 +52,7 @@ router.post('/single', uploadSingle, (req, res) => {
         originalName: req.file.originalname,
         size: req.file.size,
         mimetype: req.file.mimetype,
-        path: `/uploads/${req.file.filename}`
+        path: `/api/upload/files/${encodeURIComponent(req.file.filename)}`
       }
     });
   } catch (error) {
@@ -62,7 +82,7 @@ router.post('/multiple', uploadMultiple, (req, res) => {
       originalName: file.originalname,
       size: file.size,
       mimetype: file.mimetype,
-      path: `/uploads/${file.filename}`
+      path: `/api/upload/files/${encodeURIComponent(file.filename)}`
     }));
 
     res.json({

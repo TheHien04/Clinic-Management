@@ -1,6 +1,6 @@
 import express from 'express';
 import { getAllClinics, getClinicById, createClinic, updateClinic, deleteClinic } from '../controllers/clinicController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -8,8 +8,8 @@ router.use(authMiddleware);
 
 router.get('/', getAllClinics);
 router.get('/:id', getClinicById);
-router.post('/', createClinic);
-router.put('/:id', updateClinic);
-router.delete('/:id', deleteClinic);
+router.post('/', authorize('admin', 'manager'), createClinic);
+router.put('/:id', authorize('admin', 'manager'), updateClinic);
+router.delete('/:id', authorize('admin'), deleteClinic);
 
 export default router;

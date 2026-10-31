@@ -21,7 +21,7 @@ export const initSocket = () => {
     return socket;
   }
 
-  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  const token = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
 
   if (!token) {
     console.log('⚠️ No token, skipping socket connection');

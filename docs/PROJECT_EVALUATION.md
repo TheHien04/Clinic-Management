@@ -103,7 +103,6 @@ employees (emp_id, fullname, employee_type)
 - ✅ README.md chi tiết
 - ✅ SETUP_GUIDE.md (400+ lines)
 - ✅ BACKEND_API_GUIDE.md (API reference)
-- ✅ IMPROVEMENTS.md (architecture docs)
 - ✅ Code comments (JSDoc style)
 - ✅ Environment variable templates
 - ✅ SQL scripts với comments
@@ -690,7 +689,7 @@ jobs:
 
 3. **Testing Foundation**
    - [ ] Setup Vitest cho backend
-   - [ ] Setup Jest cho frontend
+   - [x] Setup Vitest cho frontend
    - [ ] Viết 20+ unit tests
    - [ ] Setup test database
 

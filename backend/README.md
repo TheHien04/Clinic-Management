@@ -160,7 +160,7 @@ was healthy.
 
 Connect to Socket.IO with JWT token:
 ```javascript
-const socket = io('http://localhost:5000', {
+const socket = io('http://localhost:5055', {
   auth: { token: 'your_jwt_token' }
 });
 ```
@@ -187,7 +187,7 @@ Authorization: Bearer <your_jwt_token>
 
 ### Register User
 ```bash
-curl -X POST http://localhost:5000/api/auth/register \
+curl -X POST http://localhost:5055/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -198,7 +198,7 @@ curl -X POST http://localhost:5000/api/auth/register \
 
 ### Login
 ```bash
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST http://localhost:5055/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -208,7 +208,7 @@ curl -X POST http://localhost:5000/api/auth/login \
 
 ### Create Appointment
 ```bash
-curl -X POST http://localhost:5000/api/appointments \
+curl -X POST http://localhost:5055/api/appointments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -262,7 +262,7 @@ npm run test:smoke
 
 Health check endpoint:
 ```bash
-curl http://localhost:5000/api/health
+curl http://localhost:5055/api/health
 ```
 
 Expected response:

@@ -4,6 +4,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AppointmentProvider } from './contexts/AppointmentContext';
 import { ROUTES } from './constants';
 import { hasValidSession } from './utils/authSession';
+import { useAuth } from './contexts/auth-context';
+
+const STAFF_ROLES = ['admin', 'manager', 'supervisor', 'doctor', 'nurse', 'receptionist'];
+const CLINICAL_ROLES = ['admin', 'manager', 'supervisor', 'doctor', 'nurse'];
+const REPORT_ROLES = ['admin', 'manager', 'supervisor', 'doctor'];
+const PATIENT_ROLES = ['patient', 'user'];
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Appointments = lazy(() => import('./pages/Appointments'));
@@ -12,6 +18,7 @@ const Doctors = lazy(() => import('./pages/Doctors'));
 const Reports = lazy(() => import('./pages/Reports'));
 const MedicalRecords = lazy(() => import('./pages/MedicalRecords'));
 const InnovationLab = lazy(() => import('./pages/InnovationLab'));
+const Bioinformatics = lazy(() => import('./pages/Bioinformatics'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const HospitalPortal = lazy(() => import('./pages/HospitalPortal'));
 const PatientPortal = lazy(() => import('./pages/PatientPortal'));
@@ -26,6 +33,7 @@ const TITLE_BY_PATH = {
   [`/${ROUTES.REPORTS}`]: 'Reports | Clinic Management',
   [`/${ROUTES.MEDICAL_RECORDS}`]: 'Medical Records | Clinic Management',
   [`/${ROUTES.INNOVATION_LAB}`]: 'Innovation Lab | Clinic Management',
+  [`/${ROUTES.BIOINFORMATICS}`]: 'Bioinformatics Atlas | Clinic Management',
   [`/${ROUTES.NOTIFICATIONS}`]: 'Notifications | Clinic Management',
   [`/${ROUTES.HOSPITAL_PORTAL}`]: 'Hospital Portal | Clinic Management',
   [`/${ROUTES.PATIENT_PORTAL}`]: 'Patient Portal | Clinic Management',
@@ -38,33 +46,41 @@ function RouteTitleManager() {
 
   React.useEffect(() => {
     document.title = TITLE_BY_PATH[location.pathname] || 'Clinic Management';
+    // Each workspace is a distinct task surface. Starting halfway down the
+    // previous page made hero content appear cropped and broke orientation.
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [location.pathname]);
 
   return null;
 }
 
 export default function AppRouter() {
+  const { user } = useAuth();
   const isAuthenticated = () => hasValidSession();
+  const defaultRoute = PATIENT_ROLES.includes(String(user?.role || '').toLowerCase())
+    ? ROUTES.PATIENT_PORTAL
+    : ROUTES.DASHBOARD;
 
   return (
     <BrowserRouter>
       <RouteTitleManager />
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <AppointmentProvider>
         <Suspense fallback={<div style={{ padding: 24 }}>Loading page...</div>}>
           <Routes>
             <Route 
               path={`/${ROUTES.LOGIN}`} 
-              element={isAuthenticated() ? <Navigate to={`/${ROUTES.DASHBOARD}`} replace /> : <Login />} 
+              element={isAuthenticated() ? <Navigate to={`/${defaultRoute}`} replace /> : <Login />}
             />
             <Route 
               path={`/${ROUTES.REGISTER}`} 
-              element={isAuthenticated() ? <Navigate to={`/${ROUTES.DASHBOARD}`} replace /> : <Register />} 
+              element={isAuthenticated() ? <Navigate to={`/${defaultRoute}`} replace /> : <Register />}
             />
 
             <Route 
               path={`/${ROUTES.DASHBOARD}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={STAFF_ROLES}>
                   <Dashboard />
                 </ProtectedRoute>
               } 
@@ -72,7 +88,7 @@ export default function AppRouter() {
             <Route 
               path={`/${ROUTES.APPOINTMENTS}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={STAFF_ROLES}>
                   <Appointments />
                 </ProtectedRoute>
               } 
@@ -80,7 +96,7 @@ export default function AppRouter() {
             <Route 
               path={`/${ROUTES.PATIENTS}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={STAFF_ROLES}>
                   <Patients />
                 </ProtectedRoute>
               } 
@@ -88,7 +104,7 @@ export default function AppRouter() {
             <Route 
               path={`/${ROUTES.DOCTORS}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={STAFF_ROLES}>
                   <Doctors />
                 </ProtectedRoute>
               } 
@@ -96,7 +112,7 @@ export default function AppRouter() {
             <Route 
               path={`/${ROUTES.REPORTS}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={REPORT_ROLES}>
                   <Reports />
                 </ProtectedRoute>
               } 
@@ -104,7 +120,7 @@ export default function AppRouter() {
             <Route 
               path={`/${ROUTES.MEDICAL_RECORDS}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={CLINICAL_ROLES}>
                   <MedicalRecords />
                 </ProtectedRoute>
               } 
@@ -112,15 +128,23 @@ export default function AppRouter() {
             <Route 
               path={`/${ROUTES.INNOVATION_LAB}`} 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={CLINICAL_ROLES}>
                   <InnovationLab />
                 </ProtectedRoute>
               } 
             />
             <Route
+              path={`/${ROUTES.BIOINFORMATICS}`}
+              element={
+                <ProtectedRoute roles={CLINICAL_ROLES}>
+                  <Bioinformatics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path={`/${ROUTES.NOTIFICATIONS}`}
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={[...STAFF_ROLES, ...PATIENT_ROLES]}>
                   <Notifications />
                 </ProtectedRoute>
               }
@@ -128,7 +152,7 @@ export default function AppRouter() {
             <Route
               path={`/${ROUTES.HOSPITAL_PORTAL}`}
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={STAFF_ROLES}>
                   <HospitalPortal />
                 </ProtectedRoute>
               }
@@ -136,7 +160,7 @@ export default function AppRouter() {
             <Route
               path={`/${ROUTES.PATIENT_PORTAL}`}
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={PATIENT_ROLES}>
                   <PatientPortal />
                 </ProtectedRoute>
               }
@@ -145,7 +169,7 @@ export default function AppRouter() {
               path="/" 
               element={
                 isAuthenticated() 
-                  ? <Navigate to={`/${ROUTES.DASHBOARD}`} replace /> 
+                  ? <Navigate to={`/${defaultRoute}`} replace />
                   : <Navigate to={`/${ROUTES.LOGIN}`} replace />
               } 
             />
@@ -153,7 +177,7 @@ export default function AppRouter() {
               path="*" 
               element={
                 isAuthenticated() 
-                  ? <Navigate to={`/${ROUTES.DASHBOARD}`} replace /> 
+                  ? <Navigate to={`/${defaultRoute}`} replace />
                   : <Navigate to={`/${ROUTES.LOGIN}`} replace />
               } 
             />

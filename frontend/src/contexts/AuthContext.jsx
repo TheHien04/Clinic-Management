@@ -3,36 +3,27 @@
  * Provides authentication state and methods throughout the app
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { STORAGE_KEYS } from '../constants';
-import { loginAPI, registerAPI } from '../services/auth';
+import { changePasswordAPI, loginAPI, logoutAPI, registerAPI } from '../services/auth';
 import { initSocket, disconnectSocket } from '../services/socket';
-
-const AuthContext = createContext(null);
+import { AuthContext } from './auth-context';
 
 const isLikelyJwt = (value) => String(value || '').trim().split('.').length === 3;
-
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (ctx == null) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return ctx;
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state from localStorage
+  // Restore only the current browser-tab session. Refresh tokens stay in an
+  // HttpOnly cookie and are never exposed to application JavaScript.
   useEffect(() => {
     const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
-    const storedToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
-    const storedRefreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    const storedToken = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
 
-    if (storedUser && storedToken && storedRefreshToken && isLikelyJwt(storedToken) && isLikelyJwt(storedRefreshToken)) {
+    if (storedUser && storedToken && isLikelyJwt(storedToken)) {
       try {
         const userData = JSON.parse(storedUser);
         setUser(userData);
@@ -44,20 +35,20 @@ export const AuthProvider = ({ children }) => {
         console.error('Failed to parse user data:', error);
         logout();
       }
-    } else if (storedUser || storedToken || storedRefreshToken) {
+    } else if (storedUser || storedToken) {
       // Clean up partial or malformed session artifacts from older builds.
       logout();
     }
     setLoading(false);
   }, []);
 
-  const establishSession = ({ user: nextUser, token, refreshToken }) => {
-    if (!nextUser || !token || !refreshToken) {
+  const establishSession = ({ user: nextUser, token }) => {
+    if (!nextUser || !token) {
       throw new Error('Invalid session payload');
     }
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+    sessionStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
     setUser(nextUser);
     setIsAuthenticated(true);
     initSocket();
@@ -80,8 +71,8 @@ export const AuthProvider = ({ children }) => {
           mfaHint: response.mfaHint,
         };
       }
-      const { user, token, refreshToken } = response;
-      establishSession({ user, token, refreshToken });
+      const { user, token } = response;
+      establishSession({ user, token });
       return { success: true, requiresOTP: false };
     } catch (error) {
       return { success: false, error: error.message };
@@ -105,13 +96,14 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = () => {
     localStorage.removeItem(STORAGE_KEYS.USER);
-    localStorage.removeItem(STORAGE_KEYS.TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
     setUser(null);
     setIsAuthenticated(false);
     
     // Disconnect WebSocket
     disconnectSocket();
+    logoutAPI().catch(() => {});
   };
 
   /**
@@ -122,8 +114,8 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await registerAPI(userData);
-      const { user, token, refreshToken } = response;
-      establishSession({ user, token, refreshToken });
+      const { user, token } = response;
+      establishSession({ user, token });
       return { success: true, message: 'Registration successful' };
     } catch (error) {
       return { success: false, error: error.message };
@@ -154,19 +146,12 @@ export const AuthProvider = ({ children }) => {
    */
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      // Mock password change - replace with real API call
-      // In real app, would verify current password and update
-      
       if (!currentPassword || !newPassword) {
         throw new Error('Current and new passwords are required');
       }
 
-      if (newPassword.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-
-      // Mock success
-      return { success: true, message: 'Password changed successfully' };
+      const response = await changePasswordAPI(currentPassword, newPassword);
+      return { success: true, message: response?.message || 'Password changed successfully' };
     } catch (error) {
       return { success: false, error: error.message };
     }

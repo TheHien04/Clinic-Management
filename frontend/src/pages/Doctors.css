@@ -311,6 +311,36 @@
   height: 180px;
 }
 
+.doctors-action-desk {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 22px;
+}
+
+.doctors-action-desk > button {
+  min-height: 96px;
+  border: 1px solid #cfe3ef;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff, #f3fbff);
+  color: #073f63;
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(7, 71, 106, .08);
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.doctors-action-desk > button:hover,
+.doctors-action-desk > button:focus-visible { border-color: #1abbd0; background: #eefbfe; box-shadow: 0 12px 30px rgba(16, 151, 177, .14); }
+.doctors-action-desk svg:first-child { color: #0b8bab; font-size: 24px; }
+.doctors-action-desk span { display: grid; gap: 4px; }
+.doctors-action-desk b { font-size: 15px; }
+.doctors-action-desk small { color: #637d8c; line-height: 1.4; }
+
 .doctors-capacity-section {
   background: #f8fbff;
   border: 1px solid #dce9f7;
@@ -521,6 +551,7 @@
 }
 
 @media (max-width: 900px) {
+  .doctors-action-desk { grid-template-columns: 1fr; }
   .doctors-content {
     padding: 20px 12px 36px;
   }

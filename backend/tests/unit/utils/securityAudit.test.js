@@ -42,4 +42,22 @@ describe('security audit utils', () => {
       reason: 'db_failure_test',
     })).resolves.toBeUndefined();
   });
+
+  it('clamps retention and reports the number of removed rows', async () => {
+    vi.resetModules();
+
+    const executeQuery = vi.fn()
+      .mockResolvedValueOnce({ recordset: [] })
+      .mockResolvedValueOnce({ recordset: [{ removedCount: 7 }] });
+    vi.doMock('../../../src/config/database.js', () => ({ executeQuery }));
+
+    const { cleanupAuthAuditEvents } = await import('../../../src/utils/securityAudit.js');
+    const result = await cleanupAuthAuditEvents(99999);
+
+    expect(result).toEqual({ retentionDays: 3650, removedCount: 7 });
+    expect(executeQuery).toHaveBeenLastCalledWith(
+      expect.stringContaining('DELETE FROM dbo.SecurityAuthAudit'),
+      { retentionDays: 3650 },
+    );
+  });
 });

@@ -1,14 +1,14 @@
-# 🏥 Clinic Management System - Frontend
+# Clinic Management System — Frontend
 
 Modern React-based frontend application for managing clinic operations including appointments, patients, doctors, and reports.
 
 ## 🚀 Tech Stack
 
-- **React 19.1.1** - UI library
-- **Vite 7.1.2** - Build tool & dev server
-- **Recharts 3.1.2** - Data visualization
-- **Ant Design 5.27.3** - UI component library
-- **React Icons 5.5.0** - Icon library
+- React 19 and React Router 7
+- Vite 7
+- Token-based CSS design system and Ant Design
+- Recharts for supporting analytics only
+- Vitest, Testing Library, and Playwright
 
 ## 📦 Installation
 
@@ -30,45 +30,47 @@ Visit `http://localhost:5173/` to view the application.
 npm run build
 ```
 
-## 🎨 Features
+## Features
 
-- **Dashboard**: Overview with KPI stats and charts
-- **Appointments**: Schedule management with calendar view
-- **Patients**: Patient records with medical history
-- **Doctors**: Doctor management with KPI tracking
-- **Reports**: Data export and analytics
+- Care operations dashboard and handover workflows
+- Appointment, patient, physician, and medical-record management
+- Patient portal, notification centre, and hospital portal
+- Bioinformatics research workspace and governed analytics
+- Role-based routes, API-backed workflows, and real-time events
 
-## 🔐 Demo Login
+## Demo access
 
-- Username: `admin@clinic.com`
-- Password: `123456`
-- OTP: `123456`
+Credentials are created by the backend seed process. See `../backend/README.md`;
+do not commit real credentials to this package.
 
 ## 📝 Project Structure
 
 ```
 src/
-├── components/     # Reusable components
-├── contexts/       # React Context providers
-├── pages/          # Page components
-│   ├── Common.css  # Shared styles
-│   ├── Dashboard.jsx
-│   ├── Appointments.jsx
-│   ├── Patients.jsx
-│   ├── Doctors.jsx
-│   └── Reports.jsx
-└── assets/         # Static assets
+├── components/     # Shared UI and interaction components
+├── constants/      # Routes, storage keys, and UI constants
+├── contexts/       # Authentication and appointment state
+├── features/       # Feature-owned reusable modules
+├── pages/          # Route-level screens
+├── services/       # Backend API and Socket.IO adapters
+├── test/           # Test environment setup
+└── utils/          # Pure shared utilities
 ```
 
 ## ⚙️ Configuration
 
-The app uses custom state-based routing. For production, consider migrating to React Router.
+Routing uses React Router. Access tokens are tab-scoped in `sessionStorage`; refresh
+credentials are issued by the backend as HttpOnly cookies. Preview data is explicitly
+labelled and is used only when a screen supports a governed demo fallback.
 
-## 🐛 Known Issues
+## Quality checks
 
-- Using mock data (no backend API connected)
-- Custom routing instead of React Router
-- localStorage for authentication (not secure for production)
+```bash
+npm run lint
+npm test
+npm run build
+npm run test:e2e
+```
 
 ## 📄 License
 

@@ -7,7 +7,7 @@ import { executeQuery } from '../config/database.js';
 // Get all specialties
 export const getAllSpecialties = async (req, res) => {
   try {
-    const query = `SELECT * FROM specialties ORDER BY specialty_name`;
+    const query = `SELECT SpecialtyID AS specialty_id, SpecialtyName AS specialty_name, CreatedDate AS created_date FROM Specialties ORDER BY SpecialtyName`;
     const result = await executeQuery(query);
     
     res.json({
@@ -28,7 +28,7 @@ export const getAllSpecialties = async (req, res) => {
 export const getSpecialtyById = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await executeQuery(`SELECT * FROM specialties WHERE specialty_id = @id`, { id });
+    const result = await executeQuery(`SELECT SpecialtyID AS specialty_id, SpecialtyName AS specialty_name, CreatedDate AS created_date FROM Specialties WHERE SpecialtyID = @id`, { id: Number(id) });
     
     if (result.recordset.length === 0) {
       return res.status(404).json({
@@ -64,8 +64,8 @@ export const createSpecialty = async (req, res) => {
     }
     
     const query = `
-      INSERT INTO specialties (specialty_name)
-      OUTPUT INSERTED.*
+      INSERT INTO Specialties (SpecialtyName)
+      OUTPUT INSERTED.SpecialtyID AS specialty_id, INSERTED.SpecialtyName AS specialty_name, INSERTED.CreatedDate AS created_date
       VALUES (@specialtyName)
     `;
     
@@ -93,13 +93,13 @@ export const updateSpecialty = async (req, res) => {
     const { specialtyName } = req.body;
     
     const query = `
-      UPDATE specialties
-      SET specialty_name = @specialtyName
-      OUTPUT INSERTED.*
-      WHERE specialty_id = @id
+      UPDATE Specialties
+      SET SpecialtyName = @specialtyName
+      OUTPUT INSERTED.SpecialtyID AS specialty_id, INSERTED.SpecialtyName AS specialty_name, INSERTED.CreatedDate AS created_date
+      WHERE SpecialtyID = @id
     `;
     
-    const result = await executeQuery(query, { id, specialtyName });
+    const result = await executeQuery(query, { id: Number(id), specialtyName });
     
     res.json({
       success: true,
@@ -120,7 +120,7 @@ export const updateSpecialty = async (req, res) => {
 export const deleteSpecialty = async (req, res) => {
   try {
     const { id } = req.params;
-    await executeQuery(`DELETE FROM specialties WHERE specialty_id = @id`, { id });
+    await executeQuery(`DELETE FROM Specialties WHERE SpecialtyID = @id`, { id: Number(id) });
     
     res.json({
       success: true,

@@ -169,16 +169,12 @@ clinic-management/src/
 ### File Upload Flow
 
 ```
-1. User selects file in frontend
-2. fileUtils.js validates file (type, size)
-3. Frontend calls uploadSingleFileAPI(file)
-4. FormData created with file
-5. Axios sends multipart/form-data request
-6. Backend Multer middleware processes file
-7. File saved to /uploads directory
-8. Backend returns file metadata & path
-9. Frontend displays success message
-10. File path stored in database
+1. User selects a file in an authorized client
+2. Client sends `multipart/form-data` to the upload endpoint
+3. Backend validates authorization, extension, MIME type, and size
+4. Multer stores the accepted file under `/uploads`
+5. Backend returns sanitized file metadata
+6. The calling workflow stores the resulting path when required
 ```
 
 ---
@@ -285,7 +281,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Backend runs on: **http://localhost:5000**
+Backend runs on: **http://localhost:5055**
 
 Run smoke tests:
 ```bash
@@ -354,8 +350,8 @@ CORS_ORIGIN=http://localhost:5173
 ### Frontend Environment (.env)
 
 ```env
-VITE_API_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5055/api
+VITE_SOCKET_URL=http://localhost:5055
 VITE_ENV=development
 ```
 
@@ -431,16 +427,16 @@ const newAppointment = await createAppointmentAPI({
 
 ```bash
 # Login
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST http://localhost:5055/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"hiendepzai","password":"123456"}'
 
 # Get appointments (with token)
-curl http://localhost:5000/api/appointments \
+curl http://localhost:5055/api/appointments \
   -H "Authorization: Bearer eyJhbGci..."
 
 # Create appointment
-curl -X POST http://localhost:5000/api/appointments \
+curl -X POST http://localhost:5055/api/appointments \
   -H "Authorization: Bearer eyJhbGci..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -513,7 +509,7 @@ CORS_ORIGIN=http://localhost:5173
 - **Complete Setup Guide:** [SETUP_GUIDE.md](../SETUP_GUIDE.md)
 - **Backend README:** [backend/README.md](README.md)
 - **Frontend README:** [clinic-management/README.md](../clinic-management/README.md)
-- **Improvements Doc:** [IMPROVEMENTS.md](../IMPROVEMENTS.md)
+- **Testing and security:** [TESTING_PERFORMANCE_SECURITY.md](TESTING_PERFORMANCE_SECURITY.md)
 
 ---
 

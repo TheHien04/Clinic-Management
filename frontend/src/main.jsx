@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './pages/Login.css'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 
 const root = document.getElementById('root')
@@ -11,9 +12,11 @@ if (!root) {
 } else {
   createRoot(root).render(
     <StrictMode>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <ErrorBoundary showDetails={import.meta.env.DEV}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </ErrorBoundary>
     </StrictMode>
   )
 }

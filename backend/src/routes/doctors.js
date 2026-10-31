@@ -13,20 +13,21 @@ import {
   deleteDoctor,
   getDoctorSchedule
 } from '../controllers/doctorController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authorize } from '../middleware/auth.js';
+import { cache } from '../middleware/cacheMiddleware.js';
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authMiddleware);
 
-router.get('/', getAllDoctors);
-router.get('/intelligence', getDoctorsIntelligence);
-router.post('/rebalance/apply', applyDoctorsRebalance);
+router.get('/', cache(300), getAllDoctors);
+router.get('/intelligence', authorize('admin', 'manager', 'supervisor', 'doctor', 'nurse'), getDoctorsIntelligence);
+router.post('/rebalance/apply', authorize('admin', 'manager', 'supervisor'), applyDoctorsRebalance);
 router.get('/:id', getDoctorById);
 router.get('/:id/schedule', getDoctorSchedule);
-router.post('/', createDoctor);
-router.put('/:id', updateDoctor);
-router.delete('/:id', deleteDoctor);
+router.post('/', authorize('admin', 'manager'), createDoctor);
+router.put('/:id', authorize('admin', 'manager'), updateDoctor);
+router.delete('/:id', authorize('admin'), deleteDoctor);
 
 export default router;

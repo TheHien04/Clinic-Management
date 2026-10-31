@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { FaHeartbeat, FaUserInjured, FaExclamationTriangle, FaHistory, FaNotesMedical, FaFileExport } from 'react-icons/fa';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend, LineChart, Line, Area } from 'recharts';
+import { FaHeartbeat, FaUserInjured, FaExclamationTriangle, FaHistory, FaNotesMedical, FaFileExport, FaCheckCircle, FaClipboardCheck, FaEdit, FaSearchPlus } from 'react-icons/fa';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import Spinner from '../components/Spinner';
@@ -17,6 +16,7 @@ import { exportToCSV } from '../utils/exportUtils';
 import { formatDateShort } from '../utils/i18nFormat';
 import './MedicalRecords.css';
 import './Common.css';
+import './CareWorkspace.css';
 
 const MOCK_RECORDS = (() => {
   const patients = [
@@ -127,16 +127,6 @@ const getIcdGroup = (code = '') => {
   return 'Other';
 };
 
-const getRecordMonthKey = (record) => {
-  const raw = record?.created_at || record?.scheduled_time || record?.follow_up_date;
-  if (!raw) return '';
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
-    return String(raw).slice(0, 7);
-  }
-  return parsed.toISOString().slice(0, 7);
-};
-
 const buildVitalsSnapshot = (record) => {
   const age = getAge(record.date_of_birth) || 40;
   const risk = getRiskLevel(record);
@@ -206,6 +196,7 @@ export default function MedicalRecords() {
   const [currentRecord, setCurrentRecord] = useState(null);
   const [detailModal, setDetailModal] = useState({ open: false, loading: false, record: null, history: [] });
   const [roleView, setRoleView] = useState(initialRole);
+  const [reviewedRecordIds, setReviewedRecordIds] = useState([]);
   const [formData, setFormData] = useState({
     appId: '',
     diagnosisCode: '',
@@ -317,61 +308,17 @@ export default function MedicalRecords() {
     return { total, highRisk, dueFollowups, uniquePatients };
   }, [filteredRecords]);
 
-  const icdDistribution = useMemo(() => {
-    const map = {};
-    filteredRecords.forEach((r) => {
-      const g = getIcdGroup(r.diagnosis_code);
-      map[g] = (map[g] || 0) + 1;
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [filteredRecords]);
-
-  const riskTrend = useMemo(() => {
-    const now = new Date();
-    const months = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      return d.toISOString().slice(0, 7);
-    });
-
-    return months.map((month) => {
-      const rows = filteredRecords.filter((r) => getRecordMonthKey(r) === month);
-      return {
-        month: month.slice(5),
-        high: rows.filter((r) => getRiskLevel(r) === 'high').length,
-        medium: rows.filter((r) => getRiskLevel(r) === 'medium').length,
-        low: rows.filter((r) => getRiskLevel(r) === 'low').length,
-      };
-    });
-  }, [filteredRecords]);
-
-  const monthlyClinicalSeries = useMemo(() => {
-    const now = new Date();
-    const months = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      return d.toISOString().slice(0, 7);
-    });
-
-    return months.map((month) => {
-      const rows = filteredRecords.filter((r) => getRecordMonthKey(r) === month);
-      const completed = rows.filter((r) => String(r.appointment_status || '').toLowerCase() === 'completed').length;
-      const pending = rows.filter((r) => String(r.appointment_status || '').toLowerCase() === 'pending').length;
-      const cancelled = rows.filter((r) => String(r.appointment_status || '').toLowerCase() === 'cancelled').length;
-      const followupDue = rows.filter((r) => r.follow_up_date && new Date(r.follow_up_date) <= new Date()).length;
-      const highRisk = rows.filter((r) => getRiskLevel(r) === 'high').length;
-      const total = rows.length;
-
-      return {
-        month: month.slice(5),
-        total,
-        completed,
-        pending,
-        cancelled,
-        followupDue,
-        highRisk,
-        completionRate: total ? Math.round((completed / total) * 100) : 0,
-      };
-    });
-  }, [filteredRecords]);
+  const clinicalReviewQueue = useMemo(() => filteredRecords
+    .map((record) => {
+      const risk = getRiskLevel(record);
+      const followupDue = Boolean(record.follow_up_date && new Date(record.follow_up_date) <= new Date());
+      const status = String(record.appointment_status || '').toLowerCase();
+      const priority = risk === 'high' ? 3 : followupDue ? 2 : status === 'pending' ? 1 : 0;
+      return { record, risk, followupDue, status, priority };
+    })
+    .filter((item) => item.priority > 0 && !reviewedRecordIds.includes(item.record.record_id))
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 8), [filteredRecords, reviewedRecordIds]);
 
   const qualityReadiness = useMemo(() => {
     const total = filteredRecords.length;
@@ -624,42 +571,36 @@ export default function MedicalRecords() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <div className="page-content">
-          <h1 className="page-title">Medical Records Intelligence Hub</h1>
-
+        <main id="main-content" tabIndex="-1" className="page-content medical-records-content">
+          <section className="care-workspace-hero medical-records-hero">
+            <div className="care-workspace-copy">
+              <span className="care-eyebrow"><FaNotesMedical aria-hidden="true" /> Clinical record intelligence</span>
+              <h1>Every record, <em>ready for the next decision.</em></h1>
+              <p>Unify longitudinal history, coding quality, patient risk and follow-up pressure in one governed clinical workspace.</p>
+              <div className="care-hero-actions">
+                <button type="button" className="care-action-primary" onClick={() => trendRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Explore clinical signals</button>
+                <button type="button" className="care-action-secondary" onClick={handleExport}><FaFileExport aria-hidden="true" /> Export records</button>
+              </div>
+            </div>
+            <div className="care-workspace-metrics" aria-label="Medical record priorities">
+              <article><span>Total records</span><b>{kpi.total}</b><small>Current governed scope</small></article>
+              <article className="is-critical"><span>High risk</span><b>{kpi.highRisk}</b><small>Clinical review required</small></article>
+              <article><span>Follow-up due</span><b>{kpi.dueFollowups}</b><small>Continuity actions</small></article>
+            </div>
+          </section>
+          <h1 className="care-sr-only">Medical Records Intelligence Hub</h1>
           {usingFallback && (
             <div className="alert-box alert-warning mr-alert-gap">
               <FaExclamationTriangle /> Backend data unavailable, currently showing curated demo records.
             </div>
           )}
 
-          <div className="mr-kpi-grid">
-            <div className="mr-kpi-card">
-              <div className="mr-kpi-label"><FaNotesMedical /> Total Records</div>
-              <div className="mr-kpi-value">{kpi.total}</div>
-            </div>
-            <div className="mr-kpi-card">
-              <div className="mr-kpi-label"><FaUserInjured /> Unique Patients</div>
-              <div className="mr-kpi-value">{kpi.uniquePatients}</div>
-            </div>
-            <div className="mr-kpi-card">
-              <div className="mr-kpi-label"><FaHeartbeat /> High Risk</div>
-              <div className="mr-kpi-value mr-kpi-danger">{kpi.highRisk}</div>
-            </div>
-            <div className="mr-kpi-card">
-              <div className="mr-kpi-label"><FaHistory /> Follow-up Due</div>
-              <div className="mr-kpi-value mr-kpi-warning">{kpi.dueFollowups}</div>
-            </div>
-          </div>
-
-          <section className="mr-quality-panel" aria-label="Data quality and compliance readiness">
-            <div className="mr-quality-head">
-              <h3>Data Quality & Compliance Readiness</h3>
-              <span className={`mr-quality-tier mr-quality-tier-${qualityReadiness.readinessTier}`}>
-                {qualityReadiness.readinessTier.toUpperCase()} · {qualityReadiness.readinessScore}/100
-              </span>
-            </div>
-            <div className="mr-quality-grid">
+          <details className="mr-quality-panel mr-quality-disclosure">
+            <summary>
+              <span><FaClipboardCheck aria-hidden="true" /><b>Record quality check</b><small>Open only when reviewing documentation quality</small></span>
+              <span className={`mr-quality-tier mr-quality-tier-${qualityReadiness.readinessTier}`}>{qualityReadiness.readinessScore}/100</span>
+            </summary>
+            <div className="mr-quality-grid" aria-label="Data quality and compliance readiness">
               <article className="mr-quality-card">
                 <p>Record Completeness</p>
                 <strong>{qualityReadiness.completenessPct}%</strong>
@@ -681,76 +622,40 @@ export default function MedicalRecords() {
                 <small>Encounters with follow-up strategy</small>
               </article>
             </div>
+          </details>
+
+          <section className="mr-review-workbench" ref={trendRef} aria-labelledby="mr-workbench-title">
+            <div className="mr-workbench-head">
+              <div><span>Today’s work</span><h3 id="mr-workbench-title">What needs your attention?</h3><p>Choose a task, review the patient, then mark it done.</p></div>
+              <button type="button" onClick={() => { setCurrentRecord(null); setShowModal(true); }}>+ New clinical record</button>
+            </div>
+            <div className="mr-workbench-layout">
+              <nav className="mr-task-lanes" aria-label="Record task filters">
+                <button type="button" onClick={() => setFilter((prev) => ({ ...prev, risk: 'high', status: '' }))}><FaHeartbeat aria-hidden="true" /><span><b>Review urgent cases</b><small>{kpi.highRisk} waiting</small></span></button>
+                <button type="button" onClick={() => { setFilter((prev) => ({ ...prev, risk: '', status: '' })); searchInputRef.current?.focus(); }}><FaHistory aria-hidden="true" /><span><b>Plan follow-ups</b><small>{kpi.dueFollowups} due</small></span></button>
+                <button type="button" onClick={() => setFilter((prev) => ({ ...prev, status: 'pending', risk: '' }))}><FaClipboardCheck aria-hidden="true" /><span><b>Finish notes</b><small>Pending records</small></span></button>
+              </nav>
+              <div className="mr-review-queue">
+                <div className="mr-review-queue-head"><b>Next patients</b><small>{clinicalReviewQueue.length} need action</small></div>
+                {clinicalReviewQueue.map(({ record, risk, followupDue }) => (
+                  <article key={`review-${record.record_id}`}>
+                    <span className={`risk-badge risk-${risk}`}>{risk}</span>
+                    <div className="mr-review-patient"><b>{record.patient_name} · needs review</b><small>{followupDue ? 'Follow-up is due' : 'Clinical note is pending'} · {record.doctor_name}</small></div>
+                    <div className="mr-review-actions">
+                      <button type="button" onClick={() => handleViewDetails(record)}><FaSearchPlus aria-hidden="true" /> Review</button>
+                      <button type="button" onClick={() => handleEditRecord(record)}><FaEdit aria-hidden="true" /> Update</button>
+                      <button type="button" onClick={() => setReviewedRecordIds((current) => [...current, record.record_id])}><FaCheckCircle aria-hidden="true" /> Done</button>
+                    </div>
+                  </article>
+                ))}
+                {clinicalReviewQueue.length === 0 && <div className="mr-review-empty"><FaCheckCircle aria-hidden="true" /><span><b>Queue is clear</b><small>No unresolved records in the current filter.</small></span></div>}
+              </div>
+            </div>
           </section>
 
-          <div className="mr-chart-row">
-            <div className="mr-chart-card" ref={trendRef}>
-              <h3>Diagnosis Mix (ICD Group)</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie data={icdDistribution} dataKey="value" nameKey="name" outerRadius={82} label>
-                    {icdDistribution.map((entry, idx) => (
-                      <Cell key={`${entry.name}-${idx}`} fill={['var(--brand-600)', 'var(--success-fg)', 'var(--warning-fg)', 'var(--danger-fg)', 'var(--chart-slate)'][idx % 5]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mr-chart-card">
-              <h3>Risk Trend (Last 6 Months)</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={riskTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="high" stackId="a" fill="var(--danger-fg)" />
-                  <Bar dataKey="medium" stackId="a" fill="var(--warning-fg)" />
-                  <Bar dataKey="low" stackId="a" fill="var(--success-fg)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mr-chart-card">
-              <h3>Clinical Throughput (6 Months)</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={monthlyClinicalSeries}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" allowDecimals={false} />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} unit="%" />
-                  <Tooltip />
-                  <Legend />
-                  <Area yAxisId="left" type="monotone" dataKey="total" fill="rgba(10, 141, 130, 0.18)" stroke="var(--brand-600)" name="Total records" />
-                  <Line yAxisId="left" type="monotone" dataKey="completed" stroke="var(--success-fg)" strokeWidth={2.2} name="Completed" />
-                  <Line yAxisId="right" type="monotone" dataKey="completionRate" stroke="var(--brand-700)" strokeWidth={2.2} name="Completion %" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mr-chart-card">
-              <h3>Follow-up Pressure</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={monthlyClinicalSeries}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="followupDue" fill="var(--warning-fg)" name="Follow-up due" />
-                  <Bar dataKey="highRisk" fill="var(--danger-fg)" name="High-risk count" />
-                  <Bar dataKey="pending" fill="var(--chart-sky)" name="Pending cases" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Filter Section */}
-          <div className="filter-row">
+          <section className="mr-record-browser" aria-labelledby="mr-record-browser-title">
+            <div className="mr-browser-head"><div><span>Patient records</span><h3 id="mr-record-browser-title">Find a record</h3></div><small>{filteredRecords.length} results</small></div>
+          <div className="filter-row mr-simple-filters">
             <input
               ref={searchInputRef}
               type="text"
@@ -758,20 +663,6 @@ export default function MedicalRecords() {
               className="filter-input mr-search-field"
               value={filter.search}
               onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
-            />
-            <input
-              type="date"
-              className="filter-input"
-              value={filter.startDate}
-              onChange={(e) => setFilter(prev => ({ ...prev, startDate: e.target.value }))}
-              placeholder="Start Date"
-            />
-            <input
-              type="date"
-              className="filter-input"
-              value={filter.endDate}
-              onChange={(e) => setFilter(prev => ({ ...prev, endDate: e.target.value }))}
-              placeholder="End Date"
             />
             <select
               className="filter-select"
@@ -794,21 +685,33 @@ export default function MedicalRecords() {
               <option value="medium">Medium</option>
               <option value="low">Low</option>
             </select>
-            <select className="filter-select" value={roleView} onChange={(e) => setRoleView(e.target.value)}>
-              <option value="doctor">View as Doctor</option>
-              <option value="nurse">View as Nurse</option>
-              <option value="admin">View as Admin</option>
-            </select>
-            <button className="btn-secondary" onClick={handleExport}>
-              <FaFileExport /> Export CSV
-            </button>
             <button className="btn-primary" onClick={() => setShowModal(true)}>
               + New Record
             </button>
           </div>
 
-          {/* Records Table */}
-          <div className="table-wrapper mr-table-gap" ref={tableRef}>
+          <div className="mr-record-cards">
+            {filteredRecords.slice(0, 8).map((record) => (
+              <article key={`card-${record.record_id}`}>
+                <div className="mr-record-avatar" aria-hidden="true">{String(record.patient_name || 'P').charAt(0)}</div>
+                <div className="mr-record-main"><b>{record.patient_name} · record #{record.record_id}</b><small>{record.doctor_name} · visit {formatDate(record.scheduled_time)}</small></div>
+                <div className="mr-record-context"><span className="mr-dx-chip">{record.diagnosis_code}</span><span className={`risk-badge risk-${getRiskLevel(record)}`}>{getRiskLevel(record)}</span></div>
+                <button type="button" onClick={() => handleViewDetails(record)}>Open record</button>
+              </article>
+            ))}
+            {filteredRecords.length === 0 && <div className="mr-card-empty"><FaSearchPlus aria-hidden="true" /><span><b>No matching record</b><small>Try a patient name, doctor or diagnosis code.</small></span></div>}
+          </div>
+          </section>
+
+          <details className="mr-registry-disclosure" ref={tableRef}>
+            <summary><span><b>Advanced registry</b><small>Dates, role view, export and full data table</small></span><span>{filteredRecords.length} records</span></summary>
+            <div className="mr-advanced-tools">
+              <label>From <input type="date" value={filter.startDate} onChange={(e) => setFilter(prev => ({ ...prev, startDate: e.target.value }))} /></label>
+              <label>To <input type="date" value={filter.endDate} onChange={(e) => setFilter(prev => ({ ...prev, endDate: e.target.value }))} /></label>
+              <label>Role <select value={roleView} onChange={(e) => setRoleView(e.target.value)}><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="admin">Admin</option></select></label>
+              <button className="btn-secondary" onClick={handleExport}><FaFileExport /> Export CSV</button>
+            </div>
+          <div className="table-wrapper mr-table-gap">
             <table className="data-table">
               <thead>
                 <tr>
@@ -844,15 +747,17 @@ export default function MedicalRecords() {
                       <td>{formatDate(record.scheduled_time)}</td>
                       <td>{formatDate(record.follow_up_date)}</td>
                       <td>
-                        <button className="action-btn mr-action-btn-primary" onClick={() => handleViewDetails(record)} title="View Details">
-                          Details
-                        </button>
-                        <button className="action-btn mr-action-btn-success" onClick={() => handleEditRecord(record)} title="Edit">
-                          Edit
-                        </button>
-                        <button className="action-btn mr-action-btn-danger" onClick={() => handleDeleteRecord(record.record_id)} title="Delete">
-                          Delete
-                        </button>
+                        <div className="mr-action-group">
+                          <button className="action-btn mr-action-btn-primary" onClick={() => handleViewDetails(record)} title="View Details">
+                            Details
+                          </button>
+                          <button className="action-btn mr-action-btn-success" onClick={() => handleEditRecord(record)} title="Edit">
+                            Edit
+                          </button>
+                          <button className="action-btn mr-action-btn-danger" onClick={() => handleDeleteRecord(record.record_id)} title="Delete">
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -883,6 +788,7 @@ export default function MedicalRecords() {
               </button>
             </div>
           )}
+          </details>
 
           {/* Detail Modal */}
           {detailModal.open && (
@@ -1075,7 +981,7 @@ export default function MedicalRecords() {
           )}
 
           {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        </div>
+        </main>
       </div>
     </div>
   );

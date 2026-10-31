@@ -11,12 +11,12 @@ vi.mock('../components/Header', () => ({
   default: () => <div>Header</div>,
 }));
 
-vi.mock('../services/appointments', () => ({
-  getAppointmentsForAnalyticsAPI: vi.fn().mockResolvedValue([]),
-}));
-
-vi.mock('../services/medicalRecords', () => ({
-  getMedicalRecordsAPI: vi.fn().mockResolvedValue(null),
+vi.mock('../services/patientPortal', () => ({
+  getPatientPortalAPI: vi.fn().mockResolvedValue({
+    profile: null,
+    appointments: [],
+    records: [],
+  }),
 }));
 
 describe('PatientPortal integration', () => {

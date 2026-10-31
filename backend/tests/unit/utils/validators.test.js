@@ -15,7 +15,8 @@ describe('validators utils', () => {
 
   it('validates password strength', () => {
     expect(validatePassword('12345').isValid).toBe(false);
-    expect(validatePassword('123456').isValid).toBe(true);
+    expect(validatePassword('123456').isValid).toBe(false);
+    expect(validatePassword('Clinic123').isValid).toBe(true);
   });
 
   it('validates phone numbers', () => {

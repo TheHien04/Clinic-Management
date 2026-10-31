@@ -11,6 +11,8 @@ const verifyMfaAPIMock = vi.fn();
 vi.mock('../services/auth', () => ({
   loginAPI: (...args) => loginAPIMock(...args),
   verifyMfaAPI: (...args) => verifyMfaAPIMock(...args),
+  logoutAPI: vi.fn().mockResolvedValue({ success: true }),
+  changePasswordAPI: vi.fn(),
 }));
 
 vi.mock('../services/socket', () => ({
@@ -47,10 +49,10 @@ describe('Login integration', () => {
 
     renderLoginFlow();
 
-    fireEvent.change(screen.getByPlaceholderText('Username'), {
+    fireEvent.change(screen.getByRole('textbox', { name: /email address/i }), {
       target: { value: 'admin@clinic.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Password'), {
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
       target: { value: '123456' },
     });
 
@@ -62,8 +64,8 @@ describe('Login integration', () => {
 
     const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
     expect(storedUser).toBeTruthy();
-    expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBe('jwt-token');
-    expect(localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)).toBe('refresh-token');
+    expect(sessionStorage.getItem(STORAGE_KEYS.TOKEN)).toBe('jwt-token');
+    expect(localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)).toBeNull();
   });
 
   it('navigates to register page when clicking Sign up', async () => {
@@ -81,10 +83,10 @@ describe('Login integration', () => {
 
     renderLoginFlow();
 
-    fireEvent.change(screen.getByPlaceholderText('Username'), {
+    fireEvent.change(screen.getByRole('textbox', { name: /email address/i }), {
       target: { value: 'admin@clinic.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Password'), {
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
       target: { value: 'wrong-password' },
     });
 
@@ -114,10 +116,10 @@ describe('Login integration', () => {
 
     renderLoginFlow();
 
-    fireEvent.change(screen.getByPlaceholderText('Username'), {
+    fireEvent.change(screen.getByRole('textbox', { name: /email address/i }), {
       target: { value: 'admin@clinic.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Password'), {
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
       target: { value: '123456' },
     });
 
@@ -137,7 +139,7 @@ describe('Login integration', () => {
       expect(screen.getByText('Dashboard Page')).toBeTruthy();
     });
 
-    expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBe('jwt-token-mfa');
-    expect(localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)).toBe('refresh-token-mfa');
+    expect(sessionStorage.getItem(STORAGE_KEYS.TOKEN)).toBe('jwt-token-mfa');
+    expect(localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)).toBeNull();
   });
 });

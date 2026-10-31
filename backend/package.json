@@ -5,16 +5,17 @@
   "main": "src/server.js",
   "type": "module",
   "engines": {
-    "node": ">=20 <23",
+    "node": ">=20 <25",
     "npm": ">=10"
   },
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "dev": "node --watch src/server.js",
     "start:stable": "PORT=5055 PORT_FALLBACK_ATTEMPTS=1 node src/server.js",
-    "dev:stable": "PORT=5055 PORT_FALLBACK_ATTEMPTS=1 nodemon src/server.js",
+    "dev:stable": "PORT=5055 PORT_FALLBACK_ATTEMPTS=1 node --watch src/server.js",
     "db:migrate": "node scripts/migrate.mjs",
     "db:deploy": "npm run db:migrate",
+    "db:backup": "node scripts/backup-database.mjs",
     "test": "node scripts/smoke_test.mjs",
     "test:smoke": "node scripts/smoke_test.mjs",
     "test:unit": "vitest run --coverage",
@@ -34,7 +35,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2",
+    "express": "^4.22.3",
     "express-rate-limit": "^8.3.1",
     "express-validator": "^7.0.1",
     "helmet": "^7.1.0",
@@ -44,12 +45,16 @@
     "mssql": "^12.2.1",
     "multer": "^1.4.5-lts.1",
     "redis": "^4.7.1",
-    "socket.io": "^4.6.1"
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^3.2.4",
-    "nodemon": "^3.0.2",
+    "@vitest/coverage-v8": "^5.0.4",
     "supertest": "^7.1.4",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.4"
+  },
+  "overrides": {
+    "tedious": "19.2.2",
+    "@azure/identity": "4.13.0",
+    "uuid": "11.1.1"
   }
 }

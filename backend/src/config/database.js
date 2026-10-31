@@ -12,15 +12,17 @@ const config = {
   database: process.env.DB_NAME || 'ClinicManagement',
   user: process.env.DB_USER || 'sa',
   password: process.env.DB_PASSWORD,
+  connectionTimeout: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000),
+  requestTimeout: Number(process.env.DB_REQUEST_TIMEOUT_MS || 30000),
   options: {
     encrypt: process.env.DB_ENCRYPT === 'true',
     trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
     enableArithAbort: true,
   },
   pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000,
+    max: Number(process.env.DB_POOL_MAX || 20),
+    min: Number(process.env.DB_POOL_MIN || 2),
+    idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_TIMEOUT_MS || 30000),
   },
 };
 

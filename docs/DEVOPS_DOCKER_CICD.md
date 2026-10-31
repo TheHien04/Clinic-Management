@@ -1,5 +1,11 @@
 # 🚢 DevOps, Docker & CI/CD Implementation Guide
 
+> **Source of truth:** the repository files (`backend/Dockerfile`,
+> `frontend/Dockerfile`, `docker-compose.yml`, and `.github/workflows/*`) are
+> authoritative. The snippets below are historical reference material and may
+> differ from the hardened implementation. Always validate changes with
+> `docker compose config` and the release gates before deployment.
+
 Complete DevOps setup với Docker containerization và GitHub Actions CI/CD pipeline.
 
 ---
@@ -75,11 +81,11 @@ RUN chown -R nodejs:nodejs /app
 USER nodejs
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5055
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:5000/api/monitoring/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||5055)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Start application
 CMD ["node", "src/server.js"]
@@ -322,7 +328,7 @@ services:
       - clinic-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/monitoring/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||5055)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -736,7 +742,7 @@ jobs:
       - name: Health check
         run: |
           sleep 30
-          curl -f ${{ secrets.PROD_URL }}/api/monitoring/health || exit 1
+          curl -f ${{ secrets.PROD_URL }}/api/health || exit 1
 
       - name: Notify deployment success
         uses: 8398a7/action-slack@v3
@@ -858,7 +864,7 @@ set -e
 # Configuration
 BLUE_PORT=5000
 GREEN_PORT=5001
-HEALTH_ENDPOINT="/api/monitoring/health"
+HEALTH_ENDPOINT="/api/health"
 
 echo "🚀 Starting Blue-Green Deployment..."
 

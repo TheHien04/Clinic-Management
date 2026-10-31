@@ -23,8 +23,7 @@ import {
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { STORAGE_KEYS } from '../constants';
-import { getAppointmentsForAnalyticsAPI } from '../services/appointments';
-import { getMedicalRecordsAPI } from '../services/medicalRecords';
+import { getMyPatientPortalAPI } from '../services/patientPortal';
 import './Common.css';
 import './PatientPortal.css';
 
@@ -100,6 +99,7 @@ const formatStatus = (status) => {
 export default function PatientPortal() {
   const [appointments, setAppointments] = useState([]);
   const [records, setRecords] = useState([]);
+  const [portalProfile, setPortalProfile] = useState(null);
   const [sourceLabel, setSourceLabel] = useState('Loading patient timeline...');
   const [telehealthStatus, setTelehealthStatus] = useState('');
   const [consentStatus, setConsentStatus] = useState('');
@@ -123,40 +123,31 @@ export default function PatientPortal() {
 
     const fetchPortal = async () => {
       try {
-        const [appointmentsRows, recordsPayload] = await Promise.all([
-          getAppointmentsForAnalyticsAPI({ limit: 20, offset: 0 }),
-          getMedicalRecordsAPI({ page: 1, limit: 10 }).catch(() => null),
-        ]);
+        const payload = await getMyPatientPortalAPI();
 
         if (!active) return;
 
-        const normalizedAppointments = Array.isArray(appointmentsRows)
-          ? appointmentsRows
-              .filter((item) => String(item.patient || '').trim().length > 0)
-              .slice(0, 8)
-          : [];
-        const recordsRows = Array.isArray(recordsPayload?.data)
-          ? recordsPayload.data
-          : Array.isArray(recordsPayload?.records)
-            ? recordsPayload.records
-            : [];
-        const normalizedRecords = recordsRows.map(normalizeRecord).slice(0, 8);
+        const normalizedAppointments = Array.isArray(payload.appointments) ? payload.appointments.slice(0, 8) : [];
+        const normalizedRecords = Array.isArray(payload.records) ? payload.records.map(normalizeRecord).slice(0, 8) : [];
+        setPortalProfile(payload.profile || null);
 
         if (normalizedAppointments.length || normalizedRecords.length) {
-          setAppointments(normalizedAppointments.length ? normalizedAppointments : fallbackAppointments);
-          setRecords(normalizedRecords.length ? normalizedRecords : fallbackRecords);
+          setAppointments(normalizedAppointments);
+          setRecords(normalizedRecords);
           setSourceLabel('Patient data source: Backend API (secure timeline)');
           return;
         }
 
-        setAppointments(fallbackAppointments);
-        setRecords(fallbackRecords);
-        setSourceLabel('Patient data source: Preview mode (sample timeline)');
+        const usePreview = import.meta.env.DEV;
+        setAppointments(usePreview ? fallbackAppointments : []);
+        setRecords(usePreview ? fallbackRecords : []);
+        setSourceLabel(usePreview ? 'Patient data source: Preview mode (sample timeline)' : 'No patient timeline is linked to this account yet.');
       } catch {
         if (!active) return;
-        setAppointments(fallbackAppointments);
-        setRecords(fallbackRecords);
-        setSourceLabel('Patient data source: Preview mode (API temporarily unavailable)');
+        const usePreview = import.meta.env.DEV;
+        setAppointments(usePreview ? fallbackAppointments : []);
+        setRecords(usePreview ? fallbackRecords : []);
+        setSourceLabel(usePreview ? 'Patient data source: Preview mode (API temporarily unavailable)' : 'Patient timeline is temporarily unavailable.');
       }
     };
 
@@ -175,13 +166,13 @@ export default function PatientPortal() {
     }
 
     return {
-      fullName: parsedUser?.fullName || parsedUser?.name || 'International Patient',
-      memberId: parsedUser?.memberId || 'INT-240381',
+      fullName: portalProfile?.fullName || parsedUser?.fullName || parsedUser?.name || 'International Patient',
+      memberId: portalProfile?.patientId ? `PT-${portalProfile.patientId}` : parsedUser?.memberId || 'Not linked',
       bloodGroup: parsedUser?.bloodGroup || 'O+',
       allergies: parsedUser?.allergies || 'No known severe allergies',
       primaryDoctor: appointments[0]?.doctor || 'Dr. Care Team',
     };
-  }, [appointments]);
+  }, [appointments, portalProfile]);
 
   const upcomingAppointments = useMemo(() => {
     return [...appointments]
@@ -289,7 +280,7 @@ export default function PatientPortal() {
       <Sidebar />
       <div className="dashboard-main">
         <Header />
-        <main className="patient-portal-content">
+        <main id="main-content" tabIndex="-1" className="patient-portal-content">
           <section className="patient-portal-hero">
             <div>
               <p className="patient-portal-eyebrow"><FaHeartbeat /> Global Digital Patient Experience</p>

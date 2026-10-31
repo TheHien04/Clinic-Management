@@ -16,14 +16,6 @@ vi.mock('../components/Header', () => ({
   default: () => <div>Header</div>,
 }));
 
-vi.mock('../components/RadarChart', () => ({
-  default: () => <div>DoctorRadarChart</div>,
-}));
-
-vi.mock('../components/DoctorPieCharts', () => ({
-  default: () => <div>DoctorPieCharts</div>,
-}));
-
 vi.mock('../components/AvatarIcon', () => ({
   default: () => <span>Avatar</span>,
 }));

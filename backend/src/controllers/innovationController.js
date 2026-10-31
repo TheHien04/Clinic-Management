@@ -9,41 +9,13 @@ import jwt from 'jsonwebtoken';
 import { jwtConfig } from '../config/jwt.js';
 import { executeQuery } from '../config/database.js';
 import { emitInnovationEmergency, emitOperationsHandoverSaved } from '../socket/index.js';
+import { defaultTriagePolicy, scoreTriage } from '../services/triageEngine.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const parseBearer = (authHeader) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   return authHeader.slice(7);
-};
-
-const defaultTriagePolicy = {
-  symptomWeights: {
-    chestPain: 45,
-    respiratoryDistress: 35,
-    neurologicalEmergency: 45,
-  },
-  vitalThresholds: {
-    spo2Low: 92,
-    heartRateHigh: 130,
-    heartRateLow: 45,
-    tempHigh: 39.5,
-    systolicHigh: 180,
-    systolicLow: 90,
-  },
-  vitalWeights: {
-    spo2Low: 40,
-    heartRateCritical: 30,
-    tempHigh: 20,
-    systolicCritical: 25,
-  },
-  ageWeights: {
-    elderly: 10,
-  },
-  urgencyThresholds: {
-    emergency: 70,
-    urgent: 40,
-  },
 };
 
 let triagePolicy = { ...defaultTriagePolicy };
@@ -906,69 +878,6 @@ const persistOperationsHandoverAudit = async (auditEvent) => {
 
 const buildEvidenceHash = (payload) => {
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-};
-
-const scoreTriage = ({ symptoms = '', vitals = {}, age = 35, policy = triagePolicy }) => {
-  const text = String(symptoms || '').toLowerCase();
-  const hr = Number(vitals.heartRate || 0);
-  const spo2 = Number(vitals.spo2 || 0);
-  const temp = Number(vitals.temperature || 0);
-  const sbp = Number(vitals.systolic || 0);
-
-  const redFlags = [];
-  let score = 0;
-
-  if (/chest pain|severe chest|crushing chest/.test(text)) {
-    score += Number(policy.symptomWeights.chestPain || 0);
-    redFlags.push('Possible acute coronary syndrome signal');
-  }
-  if (/shortness of breath|cannot breathe|breathless/.test(text)) {
-    score += Number(policy.symptomWeights.respiratoryDistress || 0);
-    redFlags.push('Respiratory distress symptom pattern');
-  }
-  if (/confusion|faint|seizure|stroke/.test(text)) {
-    score += Number(policy.symptomWeights.neurologicalEmergency || 0);
-    redFlags.push('Neurological emergency symptom pattern');
-  }
-
-  if (spo2 > 0 && spo2 < Number(policy.vitalThresholds.spo2Low || 0)) {
-    score += Number(policy.vitalWeights.spo2Low || 0);
-    redFlags.push('Low oxygen saturation (<92%)');
-  }
-  if (hr > Number(policy.vitalThresholds.heartRateHigh || 0) || hr < Number(policy.vitalThresholds.heartRateLow || 0)) {
-    score += Number(policy.vitalWeights.heartRateCritical || 0);
-    redFlags.push('Heart rate outside safe range');
-  }
-  if (temp >= Number(policy.vitalThresholds.tempHigh || 0)) {
-    score += Number(policy.vitalWeights.tempHigh || 0);
-    redFlags.push('High fever (>=39.5C)');
-  }
-  if (sbp > Number(policy.vitalThresholds.systolicHigh || 0) || (sbp > 0 && sbp < Number(policy.vitalThresholds.systolicLow || 0))) {
-    score += Number(policy.vitalWeights.systolicCritical || 0);
-    redFlags.push('Abnormal blood pressure threshold');
-  }
-  if (age >= 75) {
-    score += Number(policy.ageWeights.elderly || 0);
-  }
-
-  const riskScore = clamp(Math.round(score), 0, 100);
-  const emergencyThreshold = Number(policy.urgencyThresholds.emergency || 70);
-  const urgentThreshold = Number(policy.urgencyThresholds.urgent || 40);
-  const urgency = riskScore >= emergencyThreshold ? 'emergency' : riskScore >= urgentThreshold ? 'urgent' : 'routine';
-
-  const recommendation =
-    urgency === 'emergency'
-      ? 'Escalate to emergency care immediately and trigger clinician callback now.'
-      : urgency === 'urgent'
-        ? 'Schedule same-day clinical assessment with vitals re-check and follow-up call.'
-        : 'Proceed with standard outpatient workflow and proactive preventive follow-up.';
-
-  return {
-    riskScore,
-    urgency,
-    redFlags,
-    recommendation,
-  };
 };
 
 export const getSecurityPosture = async (req, res) => {

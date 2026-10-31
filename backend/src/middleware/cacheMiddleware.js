@@ -10,23 +10,28 @@ export const cache = (duration = 300) => {
     if (req.method !== 'GET') return next();
     const redisClient = getRedisClient();
     if (!redisClient) return next();
-    const cacheKey = `cache:${req.originalUrl || req.url}`;
+    // Protected resources must never share a cache entry across identities or roles.
+    // This middleware is mounted after authentication on the routes that use it.
+    const identity = req.user?.id ? `user:${req.user.id}` : 'anonymous';
+    const role = req.user?.role ? `role:${req.user.role}` : 'role:none';
+    const cacheKey = `cache:${identity}:${role}:${req.originalUrl || req.url}`;
     try {
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         console.log(`✅ Cache HIT: ${cacheKey}`);
-        return res.json({
-          success: true,
-          data: JSON.parse(cachedData),
-          cached: true,
-          cachedAt: new Date().toISOString()
-        });
+        const parsed = JSON.parse(cachedData);
+        // Current entries preserve the complete response contract (pagination,
+        // provenance, etc.). The array branch reads entries written by older
+        // releases until their TTL expires.
+        return res.json(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'success' in parsed
+          ? { ...parsed, cached: true, cachedAt: new Date().toISOString() }
+          : { success: true, data: parsed, cached: true, cachedAt: new Date().toISOString() });
       }
       console.log(`❌ Cache MISS: ${cacheKey}`);
       const originalJson = res.json.bind(res);
       res.json = (body) => {
         if (res.statusCode === 200 && body.success) {
-          redisClient.setEx(cacheKey, duration, JSON.stringify(body.data)).catch(err => console.error('Cache write error:', err));
+          redisClient.setEx(cacheKey, duration, JSON.stringify(body)).catch(err => console.error('Cache write error:', err));
         }
         return originalJson(body);
       };

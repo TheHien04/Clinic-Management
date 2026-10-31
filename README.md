@@ -1,346 +1,152 @@
-<div align="center">
+# Clinic Management System
 
-# Clinic Management System  
-### Advanced Database Course — Full-stack healthcare operations demo
+### Healthcare operations, clinical data governance and bioinformatics workspace
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)  
-[![Node](https://img.shields.io/badge/node-%3E%3D20%20%3C23-339933?logo=nodedotjs)](package.json)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20%20%3C25-339933?logo=nodedotjs)](package.json)
 [![CI](https://img.shields.io/github/actions/workflow/status/TheHien04/Clinic-Management/backend-ci.yml?label=backend%20CI&logo=github)](https://github.com/TheHien04/Clinic-Management/actions)
 
+Clinic Management is a database-centric healthcare operations platform built for the Advanced Database course and designed with production engineering practices in mind. It covers appointment orchestration, patient access, clinicians, medical records, reports, clinical notifications, hospital services and a consent-scoped bioinformatics atlas.
 
-</div>
+The project uses synthetic/demo clinical data only. It is not a medical device and must not be connected to real patient data without completing the required legal, clinical safety, privacy and security controls.
 
-<p align="center">
-  <img src="assets/Hospital.jpg" alt="Clinic Management — Hospital" width="95%"/>
-</p>
+## Product surfaces
 
-A **database-centric**, full-stack web application for managing **patients, physicians, appointments, medical records, analytics dashboards, and real-time notifications**. It showcases **normalized relational design**, **query tuning**, **stored procedures and triggers** (via the SQL script library), **versioned schema migrations**, and **software-engineering discipline**: tested APIs, CI/CD, Docker, security middleware, and observability hooks.
+| Surface | Purpose |
+| --- | --- |
+| Dashboard | Live operational signals, care continuity and decision rail |
+| Appointments | Appointment command flow, queue actions and status orchestration |
+| Patients | Patient access desk, risk cohorts and longitudinal care signals |
+| Doctors | Provider capacity, schedules and operational intelligence |
+| Medical records | Governed record quality, follow-up pressure and clinical signals |
+| Reports | Explainable analytics, cohort trends, data quality and scenarios |
+| Innovation Lab | AI triage demo, security posture and governance evidence |
+| Bioinformatics Atlas | Synthetic cohort, molecular registry and provenance workflow |
+| Notifications | Inbox, queue retries, broadcast composer and dead-letter visibility |
+| Hospital Portal | Emergency contacts, campus services and global care coordination |
+| Patient Portal | Patient-facing schedule, consent and preventive-care experience |
 
----
+## Current UI captures
 
-## Table of contents
-
-1. [Project overview and learning goals](#1-project-overview-and-learning-goals)  
-2. [Architecture and technology stack](#2-architecture-and-technology-stack)  
-3. [UI walkthrough by module](#3-ui-walkthrough-by-module)  
-4. [Data layer and advanced database topics](#4-data-layer-and-advanced-database-topics)  
-5. [API, security, and software quality](#5-api-security-and-software-quality)  
-6. [Local setup and operations](#6-local-setup-and-operations)  
-7. [Docker](#7-docker)  
-8. [Additional documentation](#8-additional-documentation)
-
----
-
-## 1. Project overview and learning goals
-
-This work combines **advanced database engineering** with **modern application delivery**:
-
-| **Database track** | **Software / data engineering track** |
-|----------------------|----------------------------------------|
-| Normalized schemas, keys, and constraints | Client–server architecture and RESTful APIs |
-| Indexes and execution plans for reporting | **Versioned migrations** with checksum tracking |
-| Stored procedures and triggers (script library) | **CI**: lint, tests, build, Lighthouse, smoke against SQL Server |
-| Views and analytics for BI-style reports | **Docker Compose** for reproducible environments |
-| Partitioning and advanced scripts in `Data/` | **API hardening** (JWT, rate limiting, input sanitization) |
+Screenshots below were captured from the current routes with Playwright and are stored in [`assets/current/`](assets/current/).
 
 <p align="center">
-  <img src="assets/Clinic.jpg" alt="Modern clinic UI" width="720"/>
-  <br/><em>Application UI in a clinic administration context</em>
+  <img src="assets/current/login.png" alt="Current secure sign-in page" width="48%" />
+  <img src="assets/current/dashboard.png" alt="Current operations dashboard" width="48%" />
+</p>
+<p align="center">
+  <img src="assets/current/register.png" alt="Current registration page" width="48%" />
+  <img src="assets/current/appointments.png" alt="Current appointment command center" width="48%" />
+</p>
+<p align="center">
+  <img src="assets/current/patients.png" alt="Current patient workspace" width="48%" />
+  <img src="assets/current/doctors.png" alt="Current doctors workspace" width="48%" />
+</p>
+<p align="center">
+  <img src="assets/current/medical-records.png" alt="Current medical records workspace" width="48%" />
+  <img src="assets/current/reports.png" alt="Current reports workspace" width="48%" />
+</p>
+<p align="center">
+  <img src="assets/current/innovation-lab.png" alt="Current innovation lab" width="48%" />
+  <img src="assets/current/bioinformatics.png" alt="Current bioinformatics atlas" width="48%" />
+</p>
+<p align="center">
+  <img src="assets/current/notifications.png" alt="Current notification center" width="48%" />
+  <img src="assets/current/hospital-portal.png" alt="Current hospital portal" width="48%" />
+</p>
+<p align="center">
+  <img src="assets/current/patient-portal.png" alt="Current patient portal" width="48%" />
 </p>
 
----
-
-## 2. Architecture and technology stack
+## Architecture
 
 ```mermaid
 flowchart LR
-  subgraph client [Client — Browser]
-    FE[React 19 + Vite]
-  end
-  subgraph api [Application tier]
-    BE[Node.js + Express]
-    RT[Socket.IO]
-  end
-  subgraph persistence [Persistence]
-    SQL[(Microsoft SQL Server)]
-    RD[(Redis — optional)]
-    MG[(MongoDB — optional)]
-  end
-  FE -->|HTTPS / JSON REST| BE
-  FE <-->|WebSocket| RT
-  BE --> SQL
-  BE --> RD
-  BE --> MG
+  Browser[React + Vite client] -->|HTTPS JSON REST| API[Express API]
+  Browser <-->|Socket.IO| API
+  API --> SQL[(SQL Server source of truth)]
+  API --> Redis[(Redis cache / coordination)]
+  API --> Mongo[(MongoDB privacy-minimized read model)]
+  API --> Audit[Clinical audit and outbox relay]
 ```
 
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 19, Vite 7, React Router 7, Ant Design, Tailwind, Recharts, Axios, Socket.IO client |
-| **Backend** | Express 4, `mssql`, JWT, `express-validator`, rate limiting, Socket.IO |
-| **Primary database** | SQL Server — migrations in `backend/migrations/`, extended scripts in `Data/` |
-| **Operations** | GitHub Actions (`.github/workflows/`), Docker (`docker-compose.yml`) |
-| **Testing** | Vitest (FE/BE), API smoke tests, k6 load tests under `backend/tests/loadtest/` |
+| Layer | Implementation |
+| --- | --- |
+| Frontend | React 19, Vite 7, React Router, Ant Design, tokenized CSS, Recharts |
+| API | Node.js 20+, Express 4, JWT/MFA, validation, rate limits, Socket.IO |
+| Relational data | SQL Server migrations, constraints, temporal history, row-version concurrency |
+| NoSQL | MongoDB read models for privacy-minimized clinical events |
+| Operations | Docker Compose, health/readiness probes, backup verification, GitHub Actions |
+| Testing | Vitest, Playwright E2E, API smoke tests, k6 load-test scaffolds |
 
----
+## Database and health-data principles
 
-## 3. UI walkthrough by module
+- SQL Server is the source of truth for transactional clinical workflows.
+- Migrations are ordered and checksum-tracked in `backend/migrations/`.
+- Synthetic records are clearly marked and isolated from production data paths.
+- Row-version concurrency returns `409 Conflict` instead of silently overwriting updates.
+- Audit/outbox workflows minimize sensitive data in NoSQL projections.
+- Backup uses `COPY_ONLY`, checksums and `RESTORE VERIFYONLY`; see [database operations runbook](docs/DATABASE_OPERATIONS_RUNBOOK.md).
 
-### 3.1. Sign-in, sign-up, and secure session
+## Security and production hardening
 
-<p align="center">
-  <img src="assets/Sign%20in.jpg" alt="Sign in" width="420"/>
-  <img src="assets/Sign%20up.jpg" alt="Sign up" width="420"/>
-</p>
+- JWT access/refresh separation with MFA support.
+- Production startup rejects weak/reused secrets and wildcard CORS.
+- HTTPS CORS and encrypted database links are required in production.
+- Security headers, request sanitization, response sanitization and origin checks.
+- Payload size limits, route-specific rate limits and IPv6-safe limiter keys.
+- Liveness/readiness endpoints: `/api/health/live`, `/api/health`, `/api/health/ready`.
+- Graceful shutdown closes HTTP, SQL, Mongo and background workers.
 
-**Capabilities:** authentication and self-service registration, optional **MFA** flow when enabled by the API, **JWT** access tokens with refresh tokens, **Auth context** hydration, and **Socket.IO** initialization after a successful login.
+This repository is production-engineered but not automatically certified for real-world clinical deployment. A real deployment still requires independent penetration testing, privacy/compliance review, clinical safety review, backup restore drills, monitoring/SIEM and incident-response procedures.
 
----
-
-### 3.2. Dashboard — operational overview
-
-<p align="center">
-  <img src="assets/Dashboard%201.jpg" alt="Dashboard 1" width="48%"/>
-  <img src="assets/Dashboard%202.jpg" alt="Dashboard 2" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Dashboard%203.jpg" alt="Dashboard 3" width="48%"/>
-  <img src="assets/Dashboard%204.jpg" alt="Dashboard 4" width="48%"/>
-</p>
-
-**Capabilities:** KPIs, operational signals, and shortcuts into functional modules — suitable for demonstrating **OLTP plus summary reporting** over a single normalized data store.
-
----
-
-### 3.3. Patient management
-
-<p align="center">
-  <img src="assets/Patients%201.jpg" alt="Patient list" width="48%"/>
-  <img src="assets/Patients%202.jpg" alt="Patient detail" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Add%20patient.jpg" alt="Add patient" width="48%"/>
-  <img src="assets/View%20Patient.jpg" alt="View patient" width="48%"/>
-</p>
-
-**Capabilities:** search, create, and update demographics and clinical context; foundation for cohort and visit-history analytics.
-
----
-
-### 3.4. Physician (doctor) management
-
-<p align="center">
-  <img src="assets/Doctors%201.jpg" alt="Doctor list" width="48%"/>
-  <img src="assets/Doctors%202.jpg" alt="Doctor detail" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Add%20doctor.jpg" alt="Add doctor" width="48%"/>
-  <img src="assets/Review%20doctor.jpg" alt="Doctor reviews" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Schedule%20doctor.jpg" alt="Doctor schedule" width="48%"/>
-</p>
-
-**Capabilities:** provider profiles, schedules, and quality feedback — aligned with **scheduling constraints** enforced in the database and API layers.
-
----
-
-### 3.5. Appointments
-
-<p align="center">
-  <img src="assets/Appointments%201.jpg" alt="Appointments view 1" width="48%"/>
-  <img src="assets/Appointments%202.jpg" alt="Appointments view 2" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Book%20new%20appointment.jpg" alt="Book new appointment" width="720"/>
-</p>
-
-**Capabilities:** create and update appointments, track status, and reduce scheduling conflicts. High-volume deployments can leverage **table partitioning** (see `Data/create_partition_appointments.sql`).
-
----
-
-### 3.6. Medical records
-
-<p align="center">
-  <img src="assets/Medical%20Records%201.jpg" alt="Medical records list" width="48%"/>
-  <img src="assets/Create%20medical%20record.jpg" alt="Create medical record" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Edit%20medical%20record.jpg" alt="Edit medical record" width="48%"/>
-  <img src="assets/Details%20Medical%20Record.jpg" alt="Medical record details" width="48%"/>
-</p>
-<p align="center">
-  <img src="assets/Sprint%20Detail%20Medical%20Record.jpg" alt="Visit / encounter detail" width="720"/>
-</p>
-
-**Capabilities:** document encounters, controlled edits, and rich detail views — illustrating **data integrity** and **clinical workflow** sequencing.
-
----
-
-### 3.7. Reports and analytics
-
-<p align="center">
-  <img src="assets/Reports%201.jpg" alt="Reports 1" width="32%"/>
-  <img src="assets/Reports%202.jpg" alt="Reports 2" width="32%"/>
-  <img src="assets/Reports%203.jpg" alt="Reports 3" width="32%"/>
-</p>
-<p align="center">
-  <img src="assets/Reports%204.jpg" alt="Reports 4" width="32%"/>
-  <img src="assets/Reports%205.jpg" alt="Reports 5" width="32%"/>
-  <img src="assets/Reports%206.jpg" alt="Reports 6" width="32%"/>
-</p>
-<p align="center">
-  <img src="assets/Reports%207.jpg" alt="Reports 7" width="32%"/>
-  <img src="assets/Reports%208.jpg" alt="Reports 8" width="32%"/>
-  <img src="assets/Reports%209.jpg" alt="Reports 9" width="32%"/>
-</p>
-
-**Capabilities:** multi-dimensional operational and financial dashboards backed by **aggregate queries**, **analytic views**, and index strategies maintained in the SQL repository.
-
----
-
-### 3.8. Innovation Lab
-
-<p align="center">
-  <img src="assets/Innovaton%20Lab%201.jpg" alt="Innovation Lab 1" width="32%"/>
-  <img src="assets/Innovation%20lab%202.jpg" alt="Innovation Lab 2" width="32%"/>
-  <img src="assets/Innovaton%20lab%203.jpg" alt="Innovation Lab 3" width="32%"/>
-</p>
-
-**Capabilities:** experimental features and operational handovers — demonstrates **schema extension** patterns and the `/api/innovation` surface with **role-aware** access control.
-
----
-
-### 3.9. Notifications
-
-<p align="center">
-  <img src="assets/Notifications.jpg" alt="Notifications" width="720"/>
-</p>
-
-**Capabilities:** notification inbox and delivery status; can be combined with **Socket.IO** for live updates.
-
----
-
-### 3.10. Hospital portal
-
-<p align="center">
-  <img src="assets/Hospital%20potal%201.jpg" alt="Hospital portal 1" width="48%"/>
-  <img src="assets/Hospital%20portal%202.jpg" alt="Hospital portal 2" width="48%"/>
-</p>
-
-**Capabilities:** hospital-wide integrated experience — useful for demonstrating **multi-role authorization** narratives.
-
----
-
-### 3.11. Patient portal
-
-<p align="center">
-  <img src="assets/Patient%20Portal%201.jpg" alt="Patient portal 1" width="48%"/>
-  <img src="assets/Patient%20Portal%202.jpg" alt="Patient portal 2" width="48%"/>
-</p>
-
-**Capabilities:** patient-facing views for schedules and related information.
-
----
-
-### 3.12. Help, settings, and feedback
-
-<p align="center">
-  <img src="assets/Help.jpg" alt="Help" width="32%"/>
-  <img src="assets/Setting.jpg" alt="Settings" width="32%"/>
-  <img src="assets/Feedback.jpg" alt="Feedback" width="32%"/>
-</p>
-
----
-
-## 4. Data layer and advanced database topics
-
-- **`backend/migrations/`** — ordered, idempotent deployments tracked in `dbo.SchemaMigrations` (migration id + checksum), matching **controlled release** practices.  
-- **`Data/`** — supplementary SQL: indexes, views, stored procedures, triggers, auditing, analytics, and partitioning (e.g., appointments).  
-- **Modeling and optimization** — fact- and dimension-oriented reporting patterns; natural path to **DWH / ETL** extensions (see roadmap notes in docs).  
-- **Consistency** — foreign-key integrity and transactional stored logic where applicable; demo admin seeding after migrate (see `backend/README.md`).
-
----
-
-## 5. API, security, and software quality
-
-- **Authentication and authorization:** JWT access tokens, refresh rotation, `authorize` middleware by role.  
-- **Hardening:** rate limits (including appointment-specific limits with **IPv6-safe** key generation), request sanitization, security headers, and optional CSRF controls.  
-- **Observability:** `/api/health`, performance middleware; optional **Redis** for response caching.  
-- **Quality gates:** `npm run qa: release` (frontend lint/tests/build, backend unit tests, smoke); GitHub Actions workflows with a **SQL Server** service container.  
-- **Vulnerability reporting:** [SECURITY.md](SECURITY.md) and [docs/SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md).
-
----
-
-## 6. Local setup and operations
-
-| Service | Default URL (development) |
-|---------|---------------------------|
-| Frontend (Vite) | http://localhost:5173 |
-| Backend API | http://localhost:5055 |
-| Health | http://localhost:5055/api/health |
+## Local setup
 
 ```bash
 git clone https://github.com/TheHien04/Clinic-Management.git
 cd Clinic-Management
 npm install
-
-cd backend && cp .env.example .env
-# Set DB_SERVER, DB_USER, DB_PASSWORD, DB_NAME, JWT_*, etc.
-npm run db:deploy
-cd ..
-
-npm run dev:stable
+npm --prefix frontend install
+npm --prefix backend install
 ```
 
-- **Node.js:** `>= 20` and `< 23` per `engines` in `package.json`.  
-- **Demo credentials** (after seed): see [backend/README.md](backend/README.md).
-
-**Quick local QA:**
-
-```bash
-npm run qa: release
-npm run qa: security
-```
-
----
-
-## 7. Docker
+For the local Docker stack:
 
 ```bash
 cp .env.docker.example .env
-# Adjust MSSQL_SA_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET as needed
-docker compose up --build
+docker compose up -d
 ```
 
-- **API:** http://localhost:5055  
-- **Frontend (nginx):** http://localhost:8080  
-- **SQL Server:** localhost:1433  
-- **Redis:** localhost:6379  
+The local development URLs are:
 
-Backend container entrypoint: `ensure-database` → `migrate` → `node src/server.js` (see `backend/scripts/docker-entrypoint.sh`).
+| Service | URL |
+| --- | --- |
+| Frontend | http://localhost:5173 |
+| API | http://localhost:5055 |
+| Liveness | http://localhost:5055/api/health/live |
+| Readiness | http://localhost:5055/api/health/ready |
 
----
+## Quality gates
 
-## 8. Additional documentation
+```bash
+npm run qa:release
+npm run qa:e2e
+npm run qa:security
+```
 
-| Document | Description |
-|----------|-------------|
-| [docs/README.md](docs/README.md) | Documentation index and repository map |
-| [backend/README.md](backend/README.md) | API, environment variables, migrations, seed data |
-| [frontend/README.md](frontend/README.md) | Frontend scripts, testing, production build |
-| [docs/BACKEND_API_GUIDE.md](docs/BACKEND_API_GUIDE.md) | API contract and usage |
-| [docs/DEVOPS_DOCKER_CICD.md](docs/DEVOPS_DOCKER_CICD.md) | DevOps and CI/CD notes |
+The release gate runs frontend lint/tests/build, backend unit tests and API smoke tests. E2E runs the critical login, notifications, patient portal and hospital portal flows.
 
----
+## Documentation
 
-## Roadmap ideas
+- [Backend API guide](docs/BACKEND_API_GUIDE.md)
+- [Health-data architecture](docs/HEALTH_DATA_ARCHITECTURE.md)
+- [Database operations runbook](docs/DATABASE_OPERATIONS_RUNBOOK.md)
+- [Testing, performance and security](docs/TESTING_PERFORMANCE_SECURITY.md)
+- [Security guide](docs/SECURITY_GUIDE.md)
+- [Architecture overview](docs/CODEBASE_ARCHITECTURE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
-- Internationalization (i18n) · Expanded audit logging for sensitive mutations · Managed cloud SQL (Azure SQL / RDS) · Deeper BI integration (Power BI, semantic models) · ETL / data warehouse pipelines.
+## License
 
----
-
-<div align="center">
-
-**TheHien04** · [Clinic-Management](https://github.com/TheHien04/Clinic-Management) · Advanced databases + professional software engineering practice
-
-</div>
+MIT. See [LICENSE](LICENSE).

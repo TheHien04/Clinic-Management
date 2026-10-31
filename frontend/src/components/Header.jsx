@@ -2,12 +2,13 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Header.css';
 import { STORAGE_KEYS, ROUTES } from '../constants';
-import { useAuth } from '../contexts/AuthContext.jsx';
+import { useAuth } from '../contexts/auth-context';
 import CommandPalette from './CommandPalette';
 import { exportToCSV } from '../utils/exportUtils';
 import { subscribeOpsAlerts } from '../services/socket';
 import { formatDateTimeCompact } from '../utils/i18nFormat';
 import { getApiBaseUrl } from '../utils/runtimeEnv';
+import { FaBell, FaCalendarPlus, FaChartBar, FaMoon, FaSearch, FaSignOutAlt, FaSun } from 'react-icons/fa';
 
 const API_BASE_URL = getApiBaseUrl();
 const OPS_ALERTS_EVENT = 'ops-alerts:update';
@@ -112,6 +113,10 @@ const pageTitles = {
   [ROUTES.DOCTORS]: 'Doctors',
   [ROUTES.REPORTS]: 'Reports',
   [ROUTES.MEDICAL_RECORDS]: 'Medical Records',
+  [ROUTES.INNOVATION_LAB]: 'Innovation Lab',
+  [ROUTES.BIOINFORMATICS]: 'Bioinformatics',
+  [ROUTES.NOTIFICATIONS]: 'Notifications',
+  [ROUTES.HOSPITAL_PORTAL]: 'Hospital Portal',
 };
 
 function formatDateTime(date) {
@@ -136,6 +141,8 @@ export default function Header() {
   const opsPanelRef = React.useRef(null);
   const opsImportInputRef = React.useRef(null);
   const user = authUser || {};
+  const role = String(user.role || '').toLowerCase();
+  const isPatient = role === 'patient' || role === 'user';
   const currentPath = location.pathname.replace(/^\//, '');
   const pageTitle = pageTitles[currentPath] || 'Dashboard';
   const [now, setNow] = React.useState(() => new Date());
@@ -444,14 +451,15 @@ export default function Header() {
       </div>
 
       <div className="header-user">
-        <div className="header-ops-wrap" ref={opsPanelRef}>
+        {!isPatient && <div className="header-ops-wrap" ref={opsPanelRef}>
           <button
             type="button"
             className={`header-ops-alerts ${opsAlerts.critical > 0 ? 'is-critical' : ''} ${opsHasUnread && opsPulseEnabled ? 'has-unread' : ''}`}
             onClick={() => setOpsPanelOpen((prev) => !prev)}
             title="Open operations alerts panel"
+            aria-label={`Ops Alerts: ${opsAlerts.total}${opsHasUnread ? ' new' : ''}`}
           >
-            Ops Alerts: {opsAlerts.total}
+            <FaBell aria-hidden="true" /> <span>Alerts</span> <b>{opsAlerts.total}</b>
             {opsAlerts.critical > 0 && <span className="header-ops-critical">Critical {opsAlerts.critical}</span>}
             {opsHasUnread && <span className="header-ops-new">new</span>}
           </button>
@@ -520,45 +528,46 @@ export default function Header() {
               </button>
             </div>
           )}
-        </div>
-        <div className="header-time">{formatDateTime(now)}</div>
-        <button
+        </div>}
+        <div className="header-time"><span>Local shift</span>{formatDateTime(now)}</div>
+        {!isPatient && <button
           type="button"
           className="header-quick-action"
           onClick={() => navigate(`/${ROUTES.APPOINTMENTS}`)}
         >
-          New Appointment
-        </button>
-        <button
+          <FaCalendarPlus aria-hidden="true" /><span>New Appointment</span>
+        </button>}
+        {!isPatient && <button
           type="button"
           className="header-quick-action"
           onClick={() => navigate(`/${ROUTES.REPORTS}`)}
         >
-          Open Reports
-        </button>
+          <FaChartBar aria-hidden="true" /><span>Reports</span>
+        </button>}
         <button
           type="button"
           className="header-theme-toggle"
           onClick={() => applyTheme(theme === 'light' ? 'slate' : 'light')}
           title="Toggle visual theme"
         >
-          Theme: {theme === 'light' ? 'Light' : 'Slate'}
+          {theme === 'light' ? <FaMoon aria-hidden="true" /> : <FaSun aria-hidden="true" />}
+          <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
         </button>
-        <button
+        {!isPatient && <button
           type="button"
           className="command-launcher"
           title="Open command palette"
           onClick={() => window.dispatchEvent(new Event('command-palette:open'))}
         >
-          Search (Cmd/Ctrl + K)
-        </button>
+          <FaSearch aria-hidden="true" /><span>Search</span><kbd>⌘ K</kbd>
+        </button>}
         <span className="user-avatar">{userInitials}</span>
         <span className="user-name">{displayName}</span>
         {user?.email && (
-          <button className="logout-btn" onClick={handleLogout}>Logout</button>
+          <button className="logout-btn" onClick={handleLogout} title="Logout"><FaSignOutAlt aria-hidden="true" /><span>Logout</span></button>
         )}
       </div>
-      <CommandPalette onLogout={handleLogout} />
+      {!isPatient && <CommandPalette onLogout={handleLogout} />}
     </header>
   );
 }
