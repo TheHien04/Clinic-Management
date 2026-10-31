@@ -110,7 +110,9 @@ export default function Bioinformatics() {
     getBioinformaticsAtlasAPI()
       .then((data) => {
         if (!active) return;
-        setAtlas(data || emptyAtlas);
+        // Keep the workspace render-safe when an API adapter returns an empty
+        // envelope or a partial response during an outage.
+        setAtlas(data?.overview ? { ...emptyAtlas, ...data } : emptyAtlas);
         setStatus('ready');
       })
       .catch(() => {

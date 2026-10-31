@@ -58,16 +58,63 @@ Screenshots below were captured from the current routes with Playwright and are 
   <img src="assets/current/patient-portal.png" alt="Current patient portal" width="48%" />
 </p>
 
+### Route notes
+
+| Route | What the user can do |
+| --- | --- |
+| `/login` | Enter the secure care workspace with password visibility and MFA-ready authentication. |
+| `/register` | Create a patient account with consent-aware onboarding. |
+| `/dashboard` | See the highest-priority operational signals and jump directly to an action. |
+| `/appointments` | Move visits through review, arrival, care, completion and capacity recovery lanes. |
+| `/patients` | Register, find and prioritize patients using longitudinal care signals. |
+| `/doctors` | Review clinician capacity, workload, schedules and staffing pressure. |
+| `/reports` | Explore explainable cohorts, risk trajectories, data quality and scenario analysis. |
+| `/medical-records` | Review governed records, follow-up pressure and clinical documentation quality. |
+| `/innovation-lab` | Run transparent triage demos and inspect policy, key and audit controls. |
+| `/bioinformatics` | Explore synthetic molecular metadata, consent scope, QC and reproducible provenance. |
+| `/notifications` | Manage inbox messages, retries, broadcasts and dead-letter visibility. |
+| `/hospital-portal` | Coordinate emergency contacts, campus services and international care support. |
+| `/patient-portal` | View patient-facing care plans, appointments, consent and preventive guidance. |
+
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Browser[React + Vite client] -->|HTTPS JSON REST| API[Express API]
-  Browser <-->|Socket.IO| API
-  API --> SQL[(SQL Server source of truth)]
-  API --> Redis[(Redis cache / coordination)]
-  API --> Mongo[(MongoDB privacy-minimized read model)]
-  API --> Audit[Clinical audit and outbox relay]
+  subgraph Edge[Trusted edge]
+    Browser[Care team / patient browser]
+    CDN[HTTPS reverse proxy / CDN]
+  end
+  subgraph App[Application boundary]
+    API[Express API]
+    Auth[JWT + MFA + RBAC]
+    Realtime[Socket.IO events]
+    Workers[Outbox relay + retention jobs]
+  end
+  subgraph Data[Governed data boundary]
+    SQL[(SQL Server source of truth)]
+    Redis[(Redis cache / rate coordination)]
+    Mongo[(MongoDB derived read model)]
+    Audit[(Clinical audit trail)]
+  end
+  Browser --> CDN --> API
+  API --> Auth
+  Browser <-->|real-time updates| Realtime
+  API --> SQL
+  API --> Redis
+  API --> Workers --> Mongo
+  API --> Audit
+```
+
+```mermaid
+flowchart TB
+  Request[Appointment or patient request] --> Validate[Validate identity, consent and input]
+  Validate --> Schedule[Schedule with concurrency protection]
+  Schedule --> Care[Check-in and clinical encounter]
+  Care --> Record[Governed record + audit event]
+  Record --> FollowUp[Risk-aware follow-up queue]
+  FollowUp --> Notify[Notification delivery with retry/dead-letter]
+  Notify --> Close[Close the care loop]
+  Record -. aggregate metadata only .-> Atlas[Bioinformatics / research workspace]
 ```
 
 | Layer | Implementation |
